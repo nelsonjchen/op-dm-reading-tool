@@ -53,7 +53,8 @@ code {
 }
 
 h1,
-h2 {
+h2,
+h3 {
   margin: 0;
   color: #132023;
   letter-spacing: 0;
@@ -67,6 +68,10 @@ h1 {
 h2 {
   font-size: 1.35rem;
   line-height: 1.2;
+}
+
+h3 {
+  font-size: 1rem;
 }
 
 .source-link,
@@ -207,6 +212,10 @@ input:disabled {
   margin: 18px 0 0;
 }
 
+.result-list.compact {
+  margin-top: 10px;
+}
+
 .result-list div,
 .limits div {
   display: grid;
@@ -249,6 +258,12 @@ li + li {
 .muted,
 footer {
   color: #5b6d69;
+}
+
+.previous-valid {
+  margin-top: 22px;
+  border-top: 1px solid #edf1ef;
+  padding-top: 18px;
 }
 
 footer {

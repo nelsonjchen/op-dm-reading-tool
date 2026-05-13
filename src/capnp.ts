@@ -79,14 +79,25 @@ export function* readMessages(bytes: Uint8Array): Generator<SegmentData[]> {
   }
 }
 
-export function findFirstCalibrationMessage(bytes: Uint8Array): CalibrationMessage | null {
+export function findFirstCalibrationMessage(
+  bytes: Uint8Array,
+  predicate: (message: CalibrationMessage) => boolean = (message) => message.status === 1 && message.rpyCalib.length === 3,
+): CalibrationMessage | null {
+  return findCalibrationMessages(bytes, predicate)[0] ?? null;
+}
+
+export function findCalibrationMessages(
+  bytes: Uint8Array,
+  predicate: (message: CalibrationMessage) => boolean = (message) => message.status === 1 && message.rpyCalib.length === 3,
+): CalibrationMessage[] {
+  const messages: CalibrationMessage[] = [];
   for (const segments of readMessages(bytes)) {
     const msg = readLiveCalibrationMessage(segments);
-    if (msg?.status === 1 && msg.rpyCalib.length === 3) {
-      return msg;
+    if (msg && predicate(msg)) {
+      messages.push(msg);
     }
   }
-  return null;
+  return messages;
 }
 
 export function readLiveCalibrationMessage(segments: SegmentData[]): CalibrationMessage | null {

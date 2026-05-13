@@ -1,7 +1,7 @@
 import "./styles.css";
-import { CALIBRATION_LIMITS, OPENPILOT_MASTER_SOURCES } from "./constants";
-import { formatAngle, formatDegrees, formatLogMonoTime, pitchDirection, withinLimits, yawDirection, deviceLimitKey } from "./format";
-import { scanRouteForCalibration, type CalibrationScanResult } from "./scan";
+import { CALIBRATION_LIMITS, GITHUB_REPO_URL, OPENPILOT_MASTER_SOURCES } from "./constants";
+import { formatAngle, formatDegrees, formatLogMonoTime, pitchDirection, yawDirection, deviceLimitKey } from "./format";
+import { scanRouteForInvalidCalibration, type CalibrationScanResult } from "./scan";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) throw new Error("Missing app element");
@@ -11,9 +11,8 @@ app.innerHTML = `
     <header class="masthead">
       <div>
         <p class="eyebrow">openpilot route utility</p>
-        <h1>Calibration reader</h1>
+        <h1>Invalid calibration scanner</h1>
       </div>
-      <a class="source-link" href="${OPENPILOT_MASTER_SOURCES.logSchema}" target="_blank" rel="noreferrer">schema</a>
     </header>
 
     <form class="reader-form" id="reader-form">
@@ -21,14 +20,14 @@ app.innerHTML = `
       <div class="input-row">
         <input id="route-input" name="route" autocomplete="off" spellcheck="false"
           placeholder="https://connect.comma.ai/5beb9b58bd12b691/0000010a--a51155e496/90/105" />
-        <button id="scan-button" type="submit">Read calibration</button>
+        <button id="scan-button" type="submit">Scan route</button>
       </div>
       <button class="ghost-button" id="demo-button" type="button">Use demo route</button>
     </form>
 
     <section class="status-panel" id="status-panel" aria-live="polite">
       <div class="progress-track"><div id="progress-bar"></div></div>
-      <p id="status-text">Paste a public route and scan. Everything runs in this browser tab.</p>
+      <p id="status-text">Paste a public route and scan qlogs for invalid calibration. Everything runs in this browser tab.</p>
     </section>
 
     <section id="result-panel" class="result-panel" hidden></section>
@@ -46,7 +45,7 @@ app.innerHTML = `
       </article>
       <article>
         <h2>Current tolerated values</h2>
-        <p>openpilot currently marks calibration valid when pitch and yaw are inside these limits, after at least five valid calibration blocks.</p>
+        <p>This scanner flags logged invalid calibration, or calibration outside these current openpilot pitch/yaw limits.</p>
         <dl class="limits">
           <div>
             <dt>Most devices</dt>
@@ -64,7 +63,9 @@ app.innerHTML = `
     <footer>
       Route file discovery follows comma Connect's public <a href="${OPENPILOT_MASTER_SOURCES.commaApi}" target="_blank" rel="noreferrer">route files API</a>
       and the newer Connect file upload model in <a href="${OPENPILOT_MASTER_SOURCES.newConnectFileApi}" target="_blank" rel="noreferrer">commaai/new-connect</a>.
-      Calibration limits come from <a href="${OPENPILOT_MASTER_SOURCES.calibrationd}" target="_blank" rel="noreferrer">openpilot calibrationd</a>.
+      Calibration limits come from <a href="${OPENPILOT_MASTER_SOURCES.calibrationd}" target="_blank" rel="noreferrer">openpilot calibrationd</a>,
+      and fields come from the <a href="${OPENPILOT_MASTER_SOURCES.logSchema}" target="_blank" rel="noreferrer">openpilot log schema</a>.
+      Source: <a href="${GITHUB_REPO_URL}" target="_blank" rel="noreferrer">GitHub</a>.
     </footer>
   </section>
 `;
@@ -88,7 +89,7 @@ form.addEventListener("submit", async (event) => {
   clearResult();
 
   try {
-    const result = await scanRouteForCalibration(input.value, (progress) => {
+    const result = await scanRouteForInvalidCalibration(input.value, (progress) => {
       statusText.textContent = progress.message;
       if (progress.total && progress.current) {
         progressBar.style.width = `${Math.max(5, (progress.current / progress.total) * 100)}%`;
@@ -110,7 +111,7 @@ function setBusy(busy: boolean): void {
   button.disabled = busy;
   demoButton.disabled = busy;
   input.disabled = busy;
-  button.textContent = busy ? "Reading..." : "Read calibration";
+  button.textContent = busy ? "Scanning..." : "Scan route";
   progressBar.classList.toggle("error", false);
   if (busy) progressBar.style.width = "4%";
 }
@@ -122,32 +123,74 @@ function clearResult(): void {
 
 function renderResult(result: CalibrationScanResult): void {
   const message = result.message;
+  if (!message) return;
   const limitKey = deviceLimitKey(result.routeInfo);
   const limits = CALIBRATION_LIMITS[limitKey];
   const pitch = message.rpyCalib[1];
   const yaw = message.rpyCalib[2];
   const roll = message.rpyCalib[0];
-  const validByCurrentLimits = withinLimits(message, result.routeInfo);
+
+  const isAllClear = result.resultType === "valid";
+  const resultEyebrow = isAllClear ? "route calibration all clear" : "earliest invalid calibration";
+  const resultBadge = isAllClear
+    ? "no invalid calibration found"
+    : result.reason === "status-invalid"
+      ? "logged invalid"
+      : "outside current limits";
+  const resultBadgeClass = isAllClear ? "ok" : "warn";
+  const segmentText = isAllClear
+    ? `${result.totalSegments} ${logFileKind(result.logSource)} segment(s), earliest valid calibration in segment ${result.segment}`
+    : `${result.segment} after scanning ${result.scannedSegments} ${logFileKind(result.logSource)} segment(s)`;
+  const previousValidMarkup =
+    !isAllClear && result.previousValid
+      ? renderPreviousValid(result.previousValid)
+      : !isAllClear
+        ? `<section class="previous-valid"><h3>Previous valid calibration</h3><p class="muted">No valid calibration was seen before this invalid event in the scanned logs.</p></section>`
+        : "";
 
   resultPanel.hidden = false;
   resultPanel.innerHTML = `
     <div class="result-header">
       <div>
-        <p class="eyebrow">earliest calibrated message</p>
+        <p class="eyebrow">${resultEyebrow}</p>
         <h2>${formatAngle(pitch)} pitch ${pitchDirection(pitch)}, ${formatAngle(yaw)} yaw ${yawDirection(yaw)}</h2>
       </div>
-      <span class="badge ${validByCurrentLimits ? "ok" : "warn"}">${validByCurrentLimits ? "inside current limits" : "outside current limits"}</span>
+      <span class="badge ${resultBadgeClass}">${resultBadge}</span>
     </div>
     <dl class="result-list">
       <div><dt>Route</dt><dd><code>${escapeHtml(result.routeName)}</code></dd></div>
-      <div><dt>Segment</dt><dd>${result.segment} after scanning ${result.scannedSegments} segment(s)</dd></div>
+      <div><dt>Segment</dt><dd>${segmentText}</dd></div>
       <div><dt>Status</dt><dd>${message.statusName} (${message.calPerc}% complete, ${message.validBlocks} valid blocks)</dd></div>
       <div><dt>Roll / pitch / yaw</dt><dd>${formatAngle(roll)} / ${formatAngle(pitch)} / ${formatAngle(yaw)}</dd></div>
       <div><dt>Spread</dt><dd>${message.rpyCalibSpread.map(formatAngle).join(" / ") || "n/a"}</dd></div>
       <div><dt>Height</dt><dd>${message.height.length ? `${message.height[0].toFixed(2)} m` : "n/a"}</dd></div>
       <div><dt>Log mono time</dt><dd>${formatLogMonoTime(message.logMonoTime)}</dd></div>
+      <div><dt>Source log</dt><dd>${result.logSource === "qlogs" ? "qlog" : "rlog"}</dd></div>
       <div><dt>Applied tolerance</dt><dd>${limits.label}: pitch ${formatDegrees(limits.pitchMinRad)} to ${formatDegrees(limits.pitchMaxRad)}, yaw ${formatDegrees(limits.yawMinRad)} to ${formatDegrees(limits.yawMaxRad)}</dd></div>
     </dl>
+    ${previousValidMarkup}
+  `;
+}
+
+function logFileKind(source: CalibrationScanResult["logSource"]): "qlog" | "rlog" {
+  return source === "qlogs" ? "qlog" : "rlog";
+}
+
+function renderPreviousValid(previous: NonNullable<CalibrationScanResult["previousValid"]>): string {
+  const message = previous.message;
+  const roll = message.rpyCalib[0];
+  const pitch = message.rpyCalib[1];
+  const yaw = message.rpyCalib[2];
+  return `
+    <section class="previous-valid">
+      <h3>Previous valid calibration</h3>
+      <dl class="result-list compact">
+        <div><dt>Segment</dt><dd>${previous.segment}</dd></div>
+        <div><dt>Status</dt><dd>${message.statusName} (${message.calPerc}% complete, ${message.validBlocks} valid blocks)</dd></div>
+        <div><dt>Roll / pitch / yaw</dt><dd>${formatAngle(roll)} / ${formatAngle(pitch)} / ${formatAngle(yaw)}</dd></div>
+        <div><dt>Log mono time</dt><dd>${formatLogMonoTime(message.logMonoTime)}</dd></div>
+      </dl>
+    </section>
   `;
 }
 

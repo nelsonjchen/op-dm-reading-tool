@@ -1,11 +1,14 @@
-# openpilot calibration reader
+# openpilot invalid calibration scanner
 
-A small all-client-side web app that reads the earliest calibrated `liveCalibration`
-message from a public openpilot route.
+A small all-client-side web app that scans a public openpilot route for invalid
+`liveCalibration` messages.
 
 It fetches comma's public route file list, downloads qlogs first when available,
 falls back to rlogs, supports `.zst` and `.bz2`, decompresses in the browser, and
-decodes just enough Cap'n Proto to read calibration values.
+decodes just enough Cap'n Proto to read calibration values. If it finds invalid
+calibration, it reports that message plus the valid calibration seen immediately
+before it when available. If no invalid calibration is found, it reports the
+earliest valid calibration as an all-clear.
 
 ## Run locally
 

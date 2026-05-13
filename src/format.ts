@@ -36,5 +36,10 @@ export function withinLimits(message: CalibrationMessage, routeInfo: RouteInfo |
   const limits = CALIBRATION_LIMITS[deviceLimitKey(routeInfo)];
   const pitch = message.rpyCalib[1];
   const yaw = message.rpyCalib[2];
+  if (!Number.isFinite(pitch) || !Number.isFinite(yaw)) return false;
   return pitch > limits.pitchMinRad && pitch < limits.pitchMaxRad && yaw > limits.yawMinRad && yaw < limits.yawMaxRad;
+}
+
+export function isInvalidCalibration(message: CalibrationMessage, routeInfo: RouteInfo | null): boolean {
+  return message.rpyCalib.length === 3 && (message.status === 2 || !withinLimits(message, routeInfo));
 }

@@ -86,6 +86,12 @@ export function orderedLogUrls(files: RouteFiles): string[] {
   return sortBySegment(files.logs ?? []);
 }
 
+export function logSourceLabel(files: RouteFiles): "qlogs" | "rlogs" | "none" {
+  if ((files.qlogs ?? []).length > 0) return "qlogs";
+  if ((files.logs ?? []).length > 0) return "rlogs";
+  return "none";
+}
+
 export function segmentFromUrl(url: string): number {
   const match = url.match(/\/(\d+)\/(?:qlog|rlog)\.(?:bz2|zst)(?:\?|$)/);
   return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
