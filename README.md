@@ -45,9 +45,7 @@ https://ophwug.github.io/op-calibration-reading-tool/
 
 1. Open [comma Connect](https://connect.comma.ai/) and select the drive.
 2. Open **More info** and turn on **Public access**.
-3. The scanner only needs qlogs. Camera uploads are not needed; if qlogs are
-   unavailable, rlogs can be used as a fallback.
-4. Copy either the browser URL or the route name.
+3. Copy either the browser URL or the route name.
 
 Accepted inputs look like:
 
