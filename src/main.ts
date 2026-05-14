@@ -78,6 +78,7 @@ const demoButton = document.querySelector<HTMLButtonElement>("#demo-button")!;
 const statusText = document.querySelector<HTMLParagraphElement>("#status-text")!;
 const progressBar = document.querySelector<HTMLDivElement>("#progress-bar")!;
 const resultPanel = document.querySelector<HTMLElement>("#result-panel")!;
+let renderGeneration = 0;
 
 demoButton.addEventListener("click", () => {
   input.value = "https://connect.comma.ai/5beb9b58bd12b691/0000010a--a51155e496/90/105";
@@ -102,6 +103,7 @@ form.addEventListener("submit", async (event) => {
       }
     });
     renderResult(result);
+    void loadQcameraPreview(result, renderGeneration);
   } catch (error) {
     statusText.textContent = error instanceof Error ? error.message : String(error);
     progressBar.style.width = "100%";
@@ -122,6 +124,7 @@ function setBusy(busy: boolean): void {
 }
 
 function clearResult(): void {
+  renderGeneration += 1;
   resultPanel.hidden = true;
   resultPanel.innerHTML = "";
 }
@@ -165,6 +168,7 @@ function renderResult(result: CalibrationScanResult): void {
     : `${result.segment} after scanning ${result.scannedSegments} ${logFileKind(result.logSource)} segment(s)`;
   const toleranceMarkup = renderToleranceVisualization(message, result.routeInfo, "Tolerance landing");
   const readFailuresMarkup = result.readFailures.length > 0 ? renderReadFailures(result) : "";
+  const qcameraPreviewMarkup = renderQcameraPreview(result);
   const previousValidMarkup =
     isInvalid && result.previousValid
       ? renderPreviousValid(result.previousValid, result.routeInfo)
@@ -194,6 +198,7 @@ function renderResult(result: CalibrationScanResult): void {
       <div><dt>Applied tolerance</dt><dd>${limits.label}: pitch ${formatDegrees(limits.pitchMinRad)} to ${formatDegrees(limits.pitchMaxRad)}, yaw ${formatDegrees(limits.yawMinRad)} to ${formatDegrees(limits.yawMaxRad)}</dd></div>
     </dl>
     ${readFailuresMarkup}
+    ${qcameraPreviewMarkup}
     ${toleranceMarkup}
     ${previousValidMarkup}
   `;
@@ -301,6 +306,52 @@ function renderReadFailures(result: CalibrationScanResult): string {
       </ul>
     </section>
   `;
+}
+
+function renderQcameraPreview(result: CalibrationScanResult): string {
+  if (!result.qcameraPreview) return "";
+  return `
+    <section class="qcamera-preview" id="qcamera-preview" data-preview-url="${escapeHtml(result.qcameraPreview.logUrl)}">
+      <div class="qcamera-preview-header">
+        <h3>optional qcamera preview</h3>
+        <span>${previewCaption(result)}</span>
+      </div>
+      <div class="qcamera-frame" id="qcamera-frame">Loading first frame...</div>
+    </section>
+  `;
+}
+
+async function loadQcameraPreview(result: CalibrationScanResult, generation: number): Promise<void> {
+  const preview = result.qcameraPreview;
+  if (!preview) return;
+  const frame = document.querySelector<HTMLElement>("#qcamera-frame");
+  if (!frame) return;
+
+  try {
+    const { captureFirstQcameraFrame } = await import("./qcameraPreview");
+    const captured = await captureFirstQcameraFrame(preview.logUrl);
+    if (generation !== renderGeneration) return;
+    frame.innerHTML = `
+      <img src="${captured.dataUrl}" alt="${escapeHtml(previewCaption(result))}" width="${captured.width}" height="${captured.height}" />
+      <p>${Math.ceil(captured.bytesFetched / 1024)} KiB fetched</p>
+    `;
+  } catch (error) {
+    if (generation !== renderGeneration) return;
+    frame.classList.add("unavailable");
+    const detail = error instanceof Error ? error.message : String(error);
+    frame.innerHTML = `
+      <p>qcamera preview unavailable. Calibration scan result is unaffected.</p>
+      <p class="qcamera-preview-detail">${escapeHtml(detail)}</p>
+    `;
+  }
+}
+
+function previewCaption(result: CalibrationScanResult): string {
+  const preview = result.qcameraPreview;
+  if (!preview) return "";
+  if (preview.reason === "invalid-segment") return `first frame from invalid segment ${preview.segment}`;
+  if (preview.reason === "unreadable-segment") return `first frame from unreadable segment ${preview.segment}`;
+  return `first frame from segment ${preview.segment}`;
 }
 
 function escapeHtml(value: string): string {

@@ -1,7 +1,16 @@
 import { findCalibrationMessages, findDeviceType, type CalibrationMessage, type DeviceType } from "./capnp";
 import { decompressLog } from "./decompress";
 import { isInvalidCalibration } from "./format";
-import { fetchRouteFiles, fetchRouteInfo, logSourceLabel, orderedLogUrls, parseRouteInput, segmentFromUrl, type RouteInfo } from "./routes";
+import {
+  fetchRouteFiles,
+  fetchRouteInfo,
+  logSourceLabel,
+  orderedLogUrls,
+  orderedQcameraUrls,
+  parseRouteInput,
+  segmentFromUrl,
+  type RouteInfo,
+} from "./routes";
 
 export interface ScanProgress {
   phase: "metadata" | "download" | "decode" | "done";
@@ -18,12 +27,19 @@ export interface CalibrationScanResult {
   segment: number | null;
   message: CalibrationMessage | null;
   previousValid: CalibrationScanMessage | null;
+  qcameraPreview: QcameraPreviewSource | null;
   readFailures: LogReadFailure[];
   scannedSegments: number;
   totalSegments: number;
   scanMode: "quick" | "full";
   resultType: "invalid" | "valid" | "incomplete";
   reason: "status-invalid" | "outside-current-limits" | "no-invalid-found" | "first-valid" | "scan-incomplete";
+}
+
+export interface QcameraPreviewSource {
+  logUrl: string;
+  segment: number;
+  reason: "early-route" | "invalid-segment" | "unreadable-segment";
 }
 
 export interface CalibrationScanMessage {
@@ -42,6 +58,7 @@ interface RouteLogContext {
   routeName: string;
   routeInfo: RouteInfo | null;
   logUrls: string[];
+  qcameraUrls: string[];
   source: "qlogs" | "rlogs";
 }
 
@@ -72,6 +89,7 @@ export async function scanRouteForFirstValidCalibration(
         segment,
         message,
         previousValid: null,
+        qcameraPreview: previewForSegment(context.qcameraUrls, 1, "early-route"),
         readFailures: [],
         scannedSegments: index + 1,
         totalSegments: context.logUrls.length,
@@ -130,6 +148,7 @@ export async function scanRouteForInvalidCalibration(
         segment,
         message,
         previousValid: sameSegmentPreviousValid ? { logUrl, segment, message: sameSegmentPreviousValid } : lastValid,
+        qcameraPreview: previewForSegment(context.qcameraUrls, segment, "invalid-segment"),
         readFailures,
         scannedSegments: index + 1,
         totalSegments: context.logUrls.length,
@@ -163,6 +182,10 @@ export async function scanRouteForInvalidCalibration(
       segment: firstValid.segment,
       message: firstValid.message,
       previousValid: null,
+      qcameraPreview:
+        readFailures.length > 0
+          ? previewForSegment(context.qcameraUrls, readFailures[0].segment, "unreadable-segment")
+          : previewForSegment(context.qcameraUrls, 1, "early-route"),
       readFailures,
       scannedSegments: decodedSegments,
       totalSegments: context.logUrls.length,
@@ -189,6 +212,7 @@ async function loadRouteLogContext(
 
   const [routeInfo, files] = await Promise.all([fetchRouteInfo(parsed.routeName), fetchRouteFiles(parsed.routeName)]);
   const logUrls = orderedLogUrls(files);
+  const qcameraUrls = orderedQcameraUrls(files);
   if (logUrls.length === 0) {
     throw new Error("No qlogs or rlogs are uploaded for this route.");
   }
@@ -200,7 +224,7 @@ async function loadRouteLogContext(
     onProgress({ phase: "metadata", message: "No qlogs found; falling back to rlogs." });
   }
 
-  return { routeName: parsed.routeName, routeInfo, logUrls, source };
+  return { routeName: parsed.routeName, routeInfo, logUrls, qcameraUrls, source };
 }
 
 async function downloadLogSegmentScan(
@@ -261,4 +285,21 @@ function routeInfoWithDeviceType(routeInfo: RouteInfo | null, routeName: string,
     deviceType,
     devicetype: deviceType === "mici" ? 7 : routeInfo?.devicetype,
   };
+}
+
+function previewForSegment(
+  qcameraUrls: string[],
+  preferredSegment: number,
+  reason: QcameraPreviewSource["reason"],
+): QcameraPreviewSource | null {
+  if (qcameraUrls.length === 0) return null;
+  const exact = qcameraUrls.find((url) => segmentFromUrl(url) === preferredSegment);
+  if (exact) return { logUrl: exact, segment: preferredSegment, reason };
+
+  const nearest =
+    qcameraUrls
+      .map((url) => ({ url, segment: segmentFromUrl(url) }))
+      .filter(({ segment }) => Number.isFinite(segment))
+      .sort((a, b) => Math.abs(a.segment - preferredSegment) - Math.abs(b.segment - preferredSegment))[0] ?? null;
+  return nearest ? { logUrl: nearest.url, segment: nearest.segment, reason } : null;
 }

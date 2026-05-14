@@ -13,6 +13,7 @@
   "dependencies": {
     "bz2": "1.0.1",
     "fzstd": "0.1.1",
+    "mux.js": "^6.3.0",
     "vite": "8.0.12"
   },
   "devDependencies": {

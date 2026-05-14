@@ -20,5 +20,6 @@ describe("route parsing", () => {
   it("extracts segment numbers from signed log URLs", () => {
     expect(segmentFromUrl("https://example.test/dongle/route/12/qlog.zst?sig=abc")).toBe(12);
     expect(segmentFromUrl("https://example.test/dongle/route/7/rlog.bz2")).toBe(7);
+    expect(segmentFromUrl("https://example.test/dongle/route/1/qcamera.ts?sig=abc")).toBe(1);
   });
 });

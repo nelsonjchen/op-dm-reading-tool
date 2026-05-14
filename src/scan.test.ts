@@ -38,6 +38,7 @@ describe("full route scan", () => {
         if (url.endsWith("/files")) {
           return Response.json({
             qlogs: ["https://example.test/route/0/qlog.zst", "https://example.test/route/1/qlog.zst"],
+            qcameras: ["https://example.test/route/0/qcamera.ts", "https://example.test/route/1/qcamera.ts"],
           });
         }
         if (url.endsWith("/v1/route/test%7Croute/")) {
@@ -62,6 +63,11 @@ describe("full route scan", () => {
       },
     ]);
     expect(result.routeInfo?.deviceType).toBe("mici");
+    expect(result.qcameraPreview).toMatchObject({
+      logUrl: "https://example.test/route/1/qcamera.ts",
+      reason: "unreadable-segment",
+      segment: 1,
+    });
     expect(findDeviceType).toHaveBeenCalledTimes(1);
     expect(decompressLog).toHaveBeenCalledTimes(2);
   });

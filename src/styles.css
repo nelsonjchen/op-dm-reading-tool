@@ -290,6 +290,73 @@ footer {
   padding-left: 20px;
 }
 
+.qcamera-preview {
+  margin-top: 22px;
+  border-top: 1px solid #edf1ef;
+  padding-top: 18px;
+}
+
+.qcamera-preview-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: baseline;
+}
+
+.qcamera-preview-header span,
+.qcamera-frame p {
+  color: #5b6d69;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.qcamera-frame {
+  display: grid;
+  place-items: center;
+  min-height: 180px;
+  margin-top: 12px;
+  border: 1px solid #d8e0dc;
+  border-radius: 8px;
+  background: #f5f8f6;
+  color: #3f5550;
+  overflow: hidden;
+}
+
+.qcamera-frame img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 330px;
+  object-fit: contain;
+}
+
+.qcamera-frame p {
+  width: 100%;
+  margin: 0;
+  padding: 8px 10px;
+  border-top: 1px solid #d8e0dc;
+  background: #ffffff;
+}
+
+.qcamera-frame.unavailable {
+  align-content: center;
+  gap: 6px;
+  border-style: dashed;
+  background: #f9fbfa;
+  color: #5b6d69;
+}
+
+.qcamera-frame.unavailable p {
+  border-top: 0;
+  background: transparent;
+  text-align: center;
+}
+
+.qcamera-preview-detail {
+  color: #71837f;
+  font-weight: 500;
+}
+
 .tolerance-visual {
   margin-top: 22px;
   border-top: 1px solid #edf1ef;
