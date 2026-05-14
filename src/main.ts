@@ -208,15 +208,36 @@ function renderToleranceVisualization(message: NonNullable<CalibrationScanResult
   return `
     <section class="tolerance-visual">
       <h3>${title}</h3>
-      ${renderToleranceRow("Pitch", message.rpyCalib[1], limits.pitchMinRad, limits.pitchMaxRad)}
-      ${renderToleranceRow("Yaw", message.rpyCalib[2], limits.yawMinRad, limits.yawMaxRad)}
+      ${renderToleranceRow("Pitch", message.rpyCalib[1], limits.pitchMinRad, limits.pitchMaxRad, {
+        minLabel: `${formatDegrees(limits.pitchMinRad)} up`,
+        zeroLabel: "0° level",
+        maxLabel: `${formatDegrees(limits.pitchMaxRad)} down`,
+        hint: adjustmentHint(message.rpyCalib[1], "pitch"),
+      })}
+      ${renderToleranceRow("Yaw", message.rpyCalib[2], limits.yawMinRad, limits.yawMaxRad, {
+        minLabel: `${formatDegrees(limits.yawMaxRad)} left`,
+        zeroLabel: "0° center",
+        maxLabel: `${formatDegrees(limits.yawMinRad)} right`,
+        hint: adjustmentHint(message.rpyCalib[2], "yaw"),
+        reverseAxis: true,
+      })}
     </section>
   `;
 }
 
-function renderToleranceRow(label: string, value: number, min: number, max: number): string {
+function renderToleranceRow(
+  label: string,
+  value: number,
+  min: number,
+  max: number,
+  axisLabels: { minLabel: string; zeroLabel: string; maxLabel: string; hint: string; reverseAxis?: boolean },
+): string {
   const rawPercent = ((value - min) / (max - min)) * 100;
-  const markerPercent = Math.min(100, Math.max(0, rawPercent));
+  const axisPercent = axisLabels.reverseAxis ? 100 - rawPercent : rawPercent;
+  const rawZeroPercent = ((0 - min) / (max - min)) * 100;
+  const axisZeroPercent = axisLabels.reverseAxis ? 100 - rawZeroPercent : rawZeroPercent;
+  const markerPercent = Math.min(100, Math.max(0, axisPercent));
+  const zeroPercent = Math.min(100, Math.max(0, axisZeroPercent));
   const inside = value > min && value < max;
   return `
     <div class="tolerance-row">
@@ -225,14 +246,25 @@ function renderToleranceRow(label: string, value: number, min: number, max: numb
         <span class="${inside ? "inside" : "outside"}">${formatAngle(value)} ${inside ? "inside" : "outside"}</span>
       </div>
       <div class="tolerance-track" aria-label="${label} tolerance ${formatDegrees(min)} to ${formatDegrees(max)}, value ${formatAngle(value)}">
+        <span class="tolerance-zero" style="left: ${zeroPercent}%"></span>
         <span class="tolerance-marker" style="left: ${markerPercent}%"></span>
       </div>
       <div class="tolerance-axis">
-        <span>${formatDegrees(min)}</span>
-        <span>${formatDegrees(max)}</span>
+        <span>${axisLabels.minLabel}</span>
+        <span class="tolerance-zero-label" style="left: ${zeroPercent}%">${axisLabels.zeroLabel}</span>
+        <span>${axisLabels.maxLabel}</span>
       </div>
+      <p class="tolerance-hint">${axisLabels.hint}</p>
     </div>
   `;
+}
+
+function adjustmentHint(value: number, axis: "pitch" | "yaw"): string {
+  if (Math.abs(value) < 0.0001) return "Already near 0°.";
+  if (axis === "pitch") {
+    return value > 0 ? "To get closer to 0°, aim the device more up." : "To get closer to 0°, aim the device more down.";
+  }
+  return value > 0 ? "To get closer to 0°, aim the device more to the right." : "To get closer to 0°, aim the device more to the left.";
 }
 
 function renderPreviousValid(previous: NonNullable<CalibrationScanResult["previousValid"]>, routeInfo: CalibrationScanResult["routeInfo"]): string {
