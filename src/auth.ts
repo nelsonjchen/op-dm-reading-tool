@@ -85,9 +85,9 @@ export function oauthRedirectNote(): string {
   const service = getOAuthService();
   if (service && canUseOAuthRedirect(service)) return "";
   if (!service) {
-    return "OAuth sign-in needs the app to be served over http or https. Public routes still work; for private routes, paste a comma JWT below.";
+    return "Private routes need a JWT.";
   }
-  return "OAuth sign-in is disabled here because comma's auth redirect accepts localhost and comma Connect hosts, but rejects this domain. Public routes still work; for private routes, paste a comma JWT below.";
+  return "Private routes need a JWT.";
 }
 
 export async function completeAuthCallback(): Promise<AuthCallbackResult> {

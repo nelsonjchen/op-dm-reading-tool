@@ -161,8 +161,8 @@ function renderAuthPanel(): void {
   if (isSignedIn()) {
     authPanel.innerHTML = `
       <div>
-        <h2>comma sign-in</h2>
-        <p class="muted">Signed in with a comma token stored locally in this browser. Private routes may work if this account can access them.</p>
+        <h2>JWT</h2>
+        <p class="muted">JWT saved in this browser.</p>
       </div>
       <button class="secondary" id="sign-out-button" type="button">Sign out</button>
     `;
@@ -177,20 +177,19 @@ function renderAuthPanel(): void {
     : `<p class="auth-warning">${escapeHtml(oauthRedirectNote())}</p>`;
   authPanel.innerHTML = `
     <div>
-      <h2>comma sign-in <span>optional experiment</span></h2>
-      <p class="muted">Public routes do not need sign-in. Sign in to try routes your comma account can access; the token stays in this browser's local storage.</p>
+      <h2>JWT</h2>
+      <p class="muted">Public routes do not need a JWT. Private routes do.</p>
       ${authOptions}
       <details class="token-details">
-        <summary>Use a JWT from jwt.comma.ai</summary>
+        <summary>Use jwt.comma.ai</summary>
         <ol class="jwt-steps">
-          <li>Open <a href="${COMMA_JWT_PORTAL_URL}" target="_blank" rel="noreferrer">jwt.comma.ai</a> and sign in with the same comma account.</li>
-          <li>Copy the value shown in the <strong>JWT</strong> field.</li>
-          <li>Paste it here, then scan the route.</li>
+          <li>Open <a href="${COMMA_JWT_PORTAL_URL}" target="_blank" rel="noreferrer">jwt.comma.ai</a>.</li>
+          <li>Copy the JWT.</li>
+          <li>Paste it here.</li>
         </ol>
-        <p class="token-note">Treat the JWT like a password. This tool stores it only in this browser's local storage.</p>
         <div class="token-row">
-          <input id="token-input" type="password" autocomplete="off" spellcheck="false" placeholder="Paste JWT token here" />
-          <button class="secondary" id="save-token-button" type="button">Use token</button>
+          <input id="token-input" type="password" autocomplete="off" spellcheck="false" placeholder="Paste JWT here" />
+          <button class="secondary" id="save-token-button" type="button">Use JWT</button>
         </div>
       </details>
     </div>

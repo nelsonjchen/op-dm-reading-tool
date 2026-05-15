@@ -46,7 +46,7 @@ describe("comma auth token storage", () => {
     });
 
     expect(getOAuthProviders()).toEqual([]);
-    expect(oauthRedirectNote()).toContain("http or https");
+    expect(oauthRedirectNote()).toBe("Private routes need a JWT.");
   });
 
   it("builds OAuth links for localhost with a non-empty service", () => {
@@ -75,7 +75,7 @@ describe("comma auth token storage", () => {
     });
 
     expect(getOAuthProviders()).toEqual([]);
-    expect(oauthRedirectNote()).toContain("rejects this domain");
+    expect(oauthRedirectNote()).toBe("Private routes need a JWT.");
   });
 
   it("builds OAuth links for comma Connect Pages hosts", () => {
