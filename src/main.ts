@@ -343,7 +343,8 @@ function logFileKind(source: CalibrationScanResult["logSource"]): "qlog" | "rlog
 }
 
 function renderToleranceVisualization(message: NonNullable<CalibrationScanResult["message"]>, routeInfo: CalibrationScanResult["routeInfo"], title: string): string {
-  const limits = CALIBRATION_LIMITS[deviceLimitKey(routeInfo)];
+  const limitKey = deviceLimitKey(routeInfo);
+  const limits = CALIBRATION_LIMITS[limitKey];
   return `
     <section class="tolerance-visual">
       <h3>${title}</h3>
@@ -353,6 +354,7 @@ function renderToleranceVisualization(message: NonNullable<CalibrationScanResult
         maxLabel: `${formatDegrees(limits.pitchMinRad)} up`,
         hint: adjustmentHint(message.rpyCalib[1], "pitch"),
         reverseAxis: true,
+        secondary: true,
       })}
       ${renderToleranceRow("Yaw", message.rpyCalib[2], limits.yawMinRad, limits.yawMaxRad, {
         minLabel: `${formatDegrees(limits.yawMaxRad)} left`,
@@ -360,6 +362,7 @@ function renderToleranceVisualization(message: NonNullable<CalibrationScanResult
         maxLabel: `${formatDegrees(limits.yawMinRad)} right`,
         hint: adjustmentHint(message.rpyCalib[2], "yaw"),
         reverseAxis: true,
+        motion: renderYawMotionVisual(message.rpyCalib[2], limitKey),
       })}
     </section>
   `;
@@ -370,7 +373,7 @@ function renderToleranceRow(
   value: number,
   min: number,
   max: number,
-  axisLabels: { minLabel: string; zeroLabel: string; maxLabel: string; hint: string; reverseAxis?: boolean },
+  axisLabels: { minLabel: string; zeroLabel: string; maxLabel: string; hint: string; reverseAxis?: boolean; secondary?: boolean; motion?: string },
 ): string {
   const rawPercent = ((value - min) / (max - min)) * 100;
   const axisPercent = axisLabels.reverseAxis ? 100 - rawPercent : rawPercent;
@@ -379,8 +382,9 @@ function renderToleranceRow(
   const markerPercent = Math.min(100, Math.max(0, axisPercent));
   const zeroPercent = Math.min(100, Math.max(0, axisZeroPercent));
   const inside = value > min && value < max;
+  const rowClass = axisLabels.secondary ? "tolerance-row is-secondary" : "tolerance-row";
   return `
-    <div class="tolerance-row">
+    <div class="${rowClass}">
       <div class="tolerance-row-header">
         <strong>${label}</strong>
         <span class="${inside ? "inside" : "outside"}">${formatAngle(value)} ${inside ? "inside" : "outside"}</span>
@@ -395,7 +399,89 @@ function renderToleranceRow(
         <span>${axisLabels.maxLabel}</span>
       </div>
       <p class="tolerance-hint">${axisLabels.hint}</p>
+      ${axisLabels.motion ?? ""}
     </div>
+  `;
+}
+
+function renderYawMotionVisual(yaw: number, limitKey: keyof typeof CALIBRATION_LIMITS): string {
+  const direction = yawMotionDirection(yaw);
+  const deviceShape = limitKey === "mici" ? "c4" : "c3";
+  const directionText = direction === "center" ? "Yaw is near 0°; no outward rotation needed." : `Rotate outward ${direction}.`;
+  const ariaLabel = `Yaw motion guidance for ${CALIBRATION_LIMITS[limitKey].label}. ${directionText}`;
+  return renderYawMotionSvg(deviceShape, direction, ariaLabel);
+}
+
+function yawMotionDirection(yaw: number): "left" | "right" | "center" {
+  if (Math.abs(yaw) < 0.0001) return "center";
+  return yaw > 0 ? "left" : "right";
+}
+
+function renderYawMotionSvg(deviceShape: "c3" | "c4", direction: "left" | "right" | "center", ariaLabel: string): string {
+  return deviceShape === "c4" ? renderC4YawMotionSvg(direction, ariaLabel) : renderC3YawMotionSvg(direction, ariaLabel);
+}
+
+function renderC3YawMotionSvg(direction: "left" | "right" | "center", ariaLabel: string): string {
+  return `
+    <svg class="motion-svg motion-c3 motion-${direction}" viewBox="0 0 520 300" role="img" aria-label="${ariaLabel}" focusable="false">
+      <path class="motion-centerline" d="M260 88V270"></path>
+      ${renderC3YawMotionArrow(direction)}
+      <g class="motion-device">
+        ${renderYawAnimation(direction, 17, 260, 178)}
+        <rect class="motion-device-body" x="140" y="154" width="240" height="48" rx="14"></rect>
+        <path class="motion-device-nose" d="M260 126L286 158H234Z"></path>
+        <circle class="motion-device-camera" cx="260" cy="178" r="12"></circle>
+      </g>
+    </svg>
+  `;
+}
+
+function renderC4YawMotionSvg(direction: "left" | "right" | "center", ariaLabel: string): string {
+  return `
+    <svg class="motion-svg motion-c4 motion-${direction}" viewBox="0 0 360 250" role="img" aria-label="${ariaLabel}" focusable="false">
+      <path class="motion-centerline" d="M180 58V226"></path>
+      ${renderC4YawMotionArrow(direction)}
+      <g class="motion-device">
+        ${renderYawAnimation(direction, 16, 180, 164)}
+        <rect class="motion-device-body" x="140" y="124" width="80" height="80" rx="13"></rect>
+        <path class="motion-device-nose" d="M180 94L204 126H156Z"></path>
+        <circle class="motion-device-camera" cx="180" cy="164" r="11"></circle>
+      </g>
+    </svg>
+  `;
+}
+
+function renderYawAnimation(direction: "left" | "right" | "center", degrees: number, cx: number, cy: number): string {
+  if (direction === "center") return "";
+  const startAngle = direction === "left" ? degrees : -degrees;
+  return `<animateTransform attributeName="transform" type="rotate" values="${startAngle} ${cx} ${cy}; 0 ${cx} ${cy}; 0 ${cx} ${cy}; ${startAngle} ${cx} ${cy}; ${startAngle} ${cx} ${cy}" keyTimes="0; 0.44; 0.82; 0.8201; 1" dur="2.2s" repeatCount="indefinite"></animateTransform>`;
+}
+
+function renderC3YawMotionArrow(direction: "left" | "right" | "center"): string {
+  if (direction === "center") return `<path class="motion-settled" d="M218 128H302"></path>`;
+  if (direction === "left") {
+    return `
+      <path class="motion-arc" d="M360 128C325 72 205 72 160 128"></path>
+      <path class="motion-arrowhead" d="M146 142L186 128L156 98Z"></path>
+    `;
+  }
+  return `
+    <path class="motion-arc" d="M160 128C195 72 315 72 360 128"></path>
+    <path class="motion-arrowhead" d="M374 142L334 128L364 98Z"></path>
+  `;
+}
+
+function renderC4YawMotionArrow(direction: "left" | "right" | "center"): string {
+  if (direction === "center") return `<path class="motion-settled" d="M146 92H214"></path>`;
+  if (direction === "left") {
+    return `
+      <path class="motion-arc" d="M248 92C222 48 140 48 112 92"></path>
+      <path class="motion-arrowhead" d="M102 104L134 92L108 68Z"></path>
+    `;
+  }
+  return `
+    <path class="motion-arc" d="M112 92C138 48 220 48 248 92"></path>
+    <path class="motion-arrowhead" d="M258 104L226 92L252 68Z"></path>
   `;
 }
 
