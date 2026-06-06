@@ -1,6 +1,6 @@
 import "./styles.css";
 import { completeAuthCallback, isSignedIn, setAccessToken, signOut } from "./auth";
-import { CALIBRATION_LIMITS, COMMA_JWT_PORTAL_URL, GITHUB_REPO_URL, OPENPILOT_MASTER_SOURCES } from "./constants";
+import { CALIBRATION_LIMITS, COMMA_JWT_PORTAL_URL, GITHUB_REPO_URL, MOUNT_INSTALL_TEMPLATES_URL, OPENPILOT_MASTER_SOURCES } from "./constants";
 import { formatAngle, formatDegrees, formatLogMonoTime, pitchDirection, yawDirection, deviceLimitKey } from "./format";
 import { buildRouteShareUrl, parseRouteInput, routeInputFromUrl } from "./routeInput";
 import { scanRouteForFirstValidCalibration, scanRouteForInvalidCalibration, type CalibrationScanResult } from "./scan";
@@ -65,6 +65,12 @@ app.innerHTML = `
         </dl>
         <p class="muted">The device settings copy rounds this to within 4° left/right and within 5° up or 9° down for tici / comma 3 and tizi / comma 3x.</p>
       </article>
+    </section>
+
+    <section class="related-tool">
+      <h2>Remounting or installing?</h2>
+      <p>Community-made <a href="${MOUNT_INSTALL_TEMPLATES_URL}" target="_blank" rel="noreferrer">printable mount templates</a>
+      can help place comma 3, comma 3x, and comma four mounts before sticking them to the windshield.</p>
     </section>
 
     <footer>

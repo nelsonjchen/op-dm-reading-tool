@@ -95,7 +95,8 @@ button {
 .reader-form,
 .status-panel,
 .result-panel,
-.info-grid article {
+.info-grid article,
+.related-tool {
   background: #ffffff;
   border: 1px solid #d8e0dc;
   border-radius: 8px;
@@ -302,6 +303,16 @@ dd {
 
 .info-grid article {
   padding: 20px;
+}
+
+.related-tool {
+  margin-top: 18px;
+  padding: 16px 20px;
+}
+
+.related-tool p {
+  margin: 6px 0 0;
+  color: #3f5550;
 }
 
 ol {
@@ -617,7 +628,8 @@ footer {
   .reader-form,
   .status-panel,
   .result-panel,
-  .info-grid article {
+  .info-grid article,
+  .related-tool {
     background: #080d0b;
     border-color: #34403c;
   }
@@ -661,7 +673,8 @@ footer {
   }
 
   .status-panel p,
-  .tolerance-hint {
+  .tolerance-hint,
+  .related-tool p {
     color: #cbd5d1;
   }
 

@@ -56,6 +56,13 @@ https://connect.comma.ai/5beb9b58bd12b691/0000010a--a51155e496/90/105
 
 You can turn Public access off again after reading the route.
 
+## Related tools
+
+Remounting or installing a device? The community-made
+[mount installation templates](https://github.com/ophwug/mount-install-templates)
+repo has printable mount placement PDFs for comma three, comma 3x, and comma
+four. These are not official comma.ai templates.
+
 ## Scan modes
 
 - **Quick look**: stop at the first valid calibration and show which device
