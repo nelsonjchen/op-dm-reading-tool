@@ -32,6 +32,16 @@ export function pitchDirection(pitch: number): string {
   return pitch > 0 ? "down" : "up";
 }
 
+export function adjustmentHint(value: number, axis: "pitch" | "yaw"): string {
+  if (Math.abs(value) < 0.0001) return "Already near 0°.";
+  if (axis === "pitch") {
+    return value > 0 ? "To get closer to 0°, aim the device more up." : "To get closer to 0°, aim the device more down.";
+  }
+  return value > 0
+    ? "To get closer to 0°, twist the device clockwise to the right."
+    : "To get closer to 0°, twist the device counterclockwise to the left.";
+}
+
 export function withinLimits(message: CalibrationMessage, routeInfo: RouteInfo | null): boolean {
   const limits = CALIBRATION_LIMITS[deviceLimitKey(routeInfo)];
   const pitch = message.rpyCalib[1];

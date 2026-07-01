@@ -1,7 +1,7 @@
 import "./styles.css";
 import { completeAuthCallback, isSignedIn, setAccessToken, signOut } from "./auth";
 import { CALIBRATION_LIMITS, COMMA_JWT_PORTAL_URL, GITHUB_REPO_URL, MOUNT_INSTALL_TEMPLATES_URL, OPENPILOT_MASTER_SOURCES } from "./constants";
-import { formatAngle, formatDegrees, formatLogMonoTime, pitchDirection, yawDirection, deviceLimitKey } from "./format";
+import { adjustmentHint, formatAngle, formatDegrees, formatLogMonoTime, pitchDirection, yawDirection, deviceLimitKey } from "./format";
 import { buildRouteShareUrl, parseRouteInput, routeInputFromUrl } from "./routeInput";
 import { scanRouteForFirstValidCalibration, scanRouteForInvalidCalibration, type CalibrationScanResult } from "./scan";
 
@@ -489,14 +489,6 @@ function renderC4YawMotionArrow(direction: "left" | "right" | "center"): string 
     <path class="motion-arc" d="M112 92C138 48 220 48 248 92"></path>
     <path class="motion-arrowhead" d="M258 104L226 92L252 68Z"></path>
   `;
-}
-
-function adjustmentHint(value: number, axis: "pitch" | "yaw"): string {
-  if (Math.abs(value) < 0.0001) return "Already near 0°.";
-  if (axis === "pitch") {
-    return value > 0 ? "To get closer to 0°, aim the device more up." : "To get closer to 0°, aim the device more down.";
-  }
-  return value > 0 ? "To get closer to 0°, aim the device outward more to the left." : "To get closer to 0°, aim the device outward more to the right.";
 }
 
 function renderPreviousValid(previous: NonNullable<CalibrationScanResult["previousValid"]>, routeInfo: CalibrationScanResult["routeInfo"]): string {
