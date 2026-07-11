@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { authHeaders, completeAuthCallback, getAccessToken, getOAuthProviders, oauthRedirectNote, setAccessToken, signOut } from "./auth";
+import { authHeaders, checkAccessToken, completeAuthCallback, getAccessToken, getOAuthProviders, oauthRedirectNote, setAccessToken, signOut } from "./auth";
 
 describe("comma auth token storage", () => {
   const storage = new Map<string, string>();
@@ -34,6 +34,32 @@ describe("comma auth token storage", () => {
     signOut();
 
     expect(getAccessToken()).toBeNull();
+  });
+
+  it("verifies a persisted JWT against comma", async () => {
+    setAccessToken("test-token");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ identity: "test" }), { status: 200 })));
+
+    await expect(checkAccessToken()).resolves.toEqual({ status: "valid" });
+    expect(fetch).toHaveBeenCalledWith("https://api.comma.ai/v1/me/", {
+      headers: { Authorization: "JWT test-token" },
+    });
+  });
+
+  it("distinguishes rejected JWTs from temporary auth-check errors", async () => {
+    setAccessToken("test-token");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 401 })));
+    await expect(checkAccessToken()).resolves.toEqual({ status: "invalid", httpStatus: 401 });
+
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 503 })));
+    await expect(checkAccessToken()).resolves.toEqual({ status: "error", message: "comma auth check failed (503)." });
+  });
+
+  it("does not call comma when no JWT is stored", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(checkAccessToken()).resolves.toEqual({ status: "missing" });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("does not build OAuth links from file URLs", () => {

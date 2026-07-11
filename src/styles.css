@@ -31,10 +31,18 @@ label { display: block; margin-bottom: 8px; font-weight: 800; }
 .input-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; }
 .form-hint, .muted { color: #8797a2; }
 .form-hint { margin: 9px 0 0; }
+.quality-option { display: flex; align-items: flex-start; gap: 10px; width: fit-content; margin: 12px 0 0; color: #b6c2ca; cursor: pointer; }
+.quality-option input { width: 18px; min-height: 18px; margin: 2px 0 0; padding: 0; accent-color: #33d17a; }
+.quality-option span { display: grid; gap: 1px; }
+.quality-option small { color: #7f919c; font-weight: 400; }
 .ghost-button, .link-button { min-height: 32px; padding: 0; background: transparent; }
 .jwt-option { margin-top: 8px; }
 .jwt-option summary { cursor: pointer; font-weight: 700; }
 .jwt-saved { margin: 0; color: #9aabb6; }
+.auth-status { margin-right: 4px; font-size: .78rem; font-weight: 750; }
+.auth-status.valid { color: #62dda0; }
+.auth-status.warning, .auth-status.checking { color: #f0bd63; }
+.auth-status.invalid { margin: 8px 0 0; color: #ff7f87; }
 .token-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 9px; }
 .status-panel { margin-top: 12px; padding: 13px 17px; }
 .status-panel p { margin: 8px 0 0; color: #a8b5be; }

@@ -37,3 +37,21 @@ liveTest("starts an interior clip on a complete keyframe", async ({ page }) => {
   await video.evaluate(async (element: HTMLVideoElement) => element.play());
   await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.currentTime)).toBeGreaterThan(1);
 });
+
+liveTest("loads high-resolution DM telemetry from the rlog", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("#high-resolution-telemetry").check();
+  await page.locator("#route-input").fill(modernRoute!);
+  await page.locator("#load-button").click();
+  await expect(page.locator("#status-text")).toHaveText("Driver Monitoring debugger ready");
+  await expect(page.locator(".route-meta")).toContainText("rlogs · 20 Hz");
+  await expect(page.locator("#driver-video")).toHaveJSProperty("readyState", 4);
+});
+
+liveTest("restores and verifies a persisted comma JWT", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator("#auth-panel")).toContainText("Verified with comma");
+  await page.reload();
+  await expect(page.locator("#auth-panel")).toContainText("JWT persisted in this browser");
+  await expect(page.locator("#auth-panel")).toContainText("Verified with comma");
+});

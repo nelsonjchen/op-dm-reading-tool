@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseRouteInput, segmentFromUrl } from "./routes";
+import { logSourceLabel, orderedLogUrls, parseRouteInput, segmentFromUrl } from "./routes";
 import { buildAuthCallbackCleanUrl, buildRouteShareUrl, routeInputFromUrl } from "./routeInput";
 
 describe("route parsing", () => {
@@ -31,6 +31,23 @@ describe("route parsing", () => {
     expect(segmentFromUrl("https://example.test/dongle/route/12/qlog.zst?sig=abc")).toBe(12);
     expect(segmentFromUrl("https://example.test/dongle/route/7/rlog.bz2")).toBe(7);
     expect(segmentFromUrl("https://example.test/dongle/route/1/qcamera.ts?sig=abc")).toBe(1);
+  });
+
+  it("prefers qlogs by default and rlogs for high-resolution telemetry", () => {
+    const files = {
+      qlogs: ["https://example.test/dongle/route/0/qlog.zst"],
+      logs: ["https://example.test/dongle/route/0/rlog.zst"],
+    };
+    expect(logSourceLabel(files)).toBe("qlogs");
+    expect(orderedLogUrls(files)[0]).toContain("qlog.zst");
+    expect(logSourceLabel(files, true)).toBe("rlogs");
+    expect(orderedLogUrls(files, true)[0]).toContain("rlog.zst");
+  });
+
+  it("falls back to qlogs when high-resolution telemetry is unavailable", () => {
+    const files = { qlogs: ["https://example.test/dongle/route/0/qlog.zst"] };
+    expect(logSourceLabel(files, true)).toBe("qlogs");
+    expect(orderedLogUrls(files, true)[0]).toContain("qlog.zst");
   });
 
   it("builds share URLs on the configured app base path", () => {

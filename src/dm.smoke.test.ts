@@ -31,6 +31,22 @@ describe("Driver Monitoring live routes", () => {
     vi.unstubAllGlobals();
   }, 60_000);
 
+  liveTest("loads full-rate modern DM telemetry from the rlog", async () => {
+    const storage = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => storage.set(key, value),
+      removeItem: (key: string) => storage.delete(key),
+    });
+    setAccessToken(commaJwt!);
+
+    const result = await loadDriverDebugRoute(modernRoute!, () => {}, { highResolutionTelemetry: true });
+    expect(result.logSource).toBe("rlogs");
+    expect(result.telemetryHz).toBeGreaterThan(15);
+    expect(result.monitoring[0].schema).toBe("modern");
+    vi.unstubAllGlobals();
+  }, 180_000);
+
   it("normalizes the legacy flat Driver Monitoring state", async () => {
     const result = await loadDriverDebugRoute(
       "https://connect.comma.ai/5beb9b58bd12b691/0000010a--a51155e496/0/5",

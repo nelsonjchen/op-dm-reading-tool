@@ -1,5 +1,5 @@
 import "./styles.css";
-import { completeAuthCallback, isSignedIn, setAccessToken, signOut } from "./auth";
+import { checkAccessToken, completeAuthCallback, isSignedIn, setAccessToken, signOut, type AuthCheckResult } from "./auth";
 import { loadDriverDebugRoute, type DriverDebugRoute } from "./debugger";
 import { sampleAt, selectDriver, type DriverModelData, type DriverMonitoringSample } from "./dm";
 import { buildAuthCallbackCleanUrl, buildRouteShareUrl, routeInputFromUrl } from "./routeInput";
@@ -22,6 +22,10 @@ app.innerHTML = `
         <button id="share-button" class="secondary" type="button" disabled>Share</button>
       </div>
       <p class="form-hint">Bare routes load seconds 0–30. Clip URLs honor their start/end range. Driver video never leaves your browser.</p>
+      <label class="quality-option" for="high-resolution-telemetry">
+        <input id="high-resolution-telemetry" type="checkbox" />
+        <span><strong>High-resolution DM telemetry</strong><small>Prefer 20 Hz rlogs when available. Downloads are substantially larger.</small></span>
+      </label>
       <div class="jwt-option" id="auth-panel"></div>
     </form>
     <section class="status-panel" aria-live="polite">
@@ -39,6 +43,7 @@ const form = byId<HTMLFormElement>("reader-form");
 const input = byId<HTMLInputElement>("route-input");
 const loadButton = byId<HTMLButtonElement>("load-button");
 const shareButton = byId<HTMLButtonElement>("share-button");
+const highResolutionTelemetry = byId<HTMLInputElement>("high-resolution-telemetry");
 const authPanel = byId<HTMLElement>("auth-panel");
 const statusText = byId<HTMLElement>("status-text");
 const progressBar = byId<HTMLElement>("progress-bar");
@@ -50,9 +55,10 @@ byId<HTMLElement>("codec-summary").textContent = support.supported
 
 let currentRoute: DriverDebugRoute | null = null;
 let videoPlayer: DriverVideoPlayer | null = null;
+let authCheck: AuthCheckResult = isSignedIn() ? { status: "checking" } : { status: "missing" };
 
 renderAuthPanel();
-void initializeFromUrl();
+void initialize();
 
 form.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -63,13 +69,22 @@ authPanel.addEventListener("click", (event) => {
   const target = event.target as HTMLElement;
   if (target.closest("#sign-out-button")) {
     signOut();
+    authCheck = { status: "missing" };
     renderAuthPanel();
   }
   if (target.closest("#save-token-button")) {
     setAccessToken(byId<HTMLInputElement>("token-input").value);
-    renderAuthPanel();
+    void verifyStoredAuth();
+  }
+  if (target.closest("#recheck-auth-button")) {
+    void verifyStoredAuth();
   }
 });
+
+async function initialize(): Promise<void> {
+  if (isSignedIn()) await verifyStoredAuth();
+  await initializeFromUrl();
+}
 
 async function initializeFromUrl(): Promise<void> {
   await completePendingAuth();
@@ -86,7 +101,11 @@ async function loadRoute(routeInput: string, updateHistory: boolean): Promise<vo
   viewer.hidden = true;
   videoPlayer?.destroy();
   try {
-    const result = await loadDriverDebugRoute(routeInput, ({ message, fraction }) => setProgress(message, fraction));
+    const result = await loadDriverDebugRoute(
+      routeInput,
+      ({ message, fraction }) => setProgress(message, fraction),
+      { highResolutionTelemetry: highResolutionTelemetry.checked },
+    );
     currentRoute = result;
     input.value = routeInput.trim();
     if (updateHistory) {
@@ -109,7 +128,7 @@ function renderViewer(route: DriverDebugRoute): void {
   viewer.innerHTML = `
     <header class="viewer-header">
       <div><p class="eyebrow">driver-debug</p><h2>${escapeHtml(route.routeName)}</h2></div>
-      <div class="route-meta"><span>${formatTime(route.startSeconds)}–${formatTime(route.endSeconds)}</span><span>${route.logSource}</span><span>${route.monitoring[0]?.schema ?? "unknown"} DM</span></div>
+      <div class="route-meta"><span>${formatTime(route.startSeconds)}–${formatTime(route.endSeconds)}</span><span>${route.logSource} · ${formatHz(route.telemetryHz)}</span><span>${route.monitoring[0]?.schema ?? "unknown"} DM</span>${route.highResolutionRequested && route.logSource === "qlogs" ? "<span>rlog unavailable</span>" : ""}</div>
     </header>
     <div class="video-shell">
       <video id="driver-video" muted playsinline controls></video>
@@ -249,16 +268,34 @@ function renderHistory(routeSeconds: number, current: DriverMonitoringSample): v
 }
 
 function renderAuthPanel(): void {
-  authPanel.innerHTML = isSignedIn()
-    ? `<p class="jwt-saved">JWT saved in this browser. <button class="link-button" id="sign-out-button" type="button">Remove</button></p>`
-    : `<details><summary>Private route? Use a JWT</summary><div class="token-row"><input id="token-input" type="password" placeholder="Paste jwt.comma.ai token"/><button class="secondary" id="save-token-button" type="button">Use JWT</button></div></details>`;
+  if (!isSignedIn()) {
+    const warning = authCheck.status === "invalid" ? `<p class="auth-status invalid">That JWT was rejected and was not saved.</p>` : "";
+    authPanel.innerHTML = `<details ${authCheck.status === "invalid" ? "open" : ""}><summary>Private route? Use a JWT</summary>${warning}<div class="token-row"><input id="token-input" type="password" autocomplete="off" placeholder="Paste jwt.comma.ai token"/><button class="secondary" id="save-token-button" type="button">Save and verify</button></div></details>`;
+    return;
+  }
+
+  const status = authCheck.status === "valid"
+    ? `<span class="auth-status valid">Verified with comma</span>`
+    : authCheck.status === "error"
+      ? `<span class="auth-status warning">Saved; verification unavailable</span>`
+      : `<span class="auth-status checking">Checking with comma…</span>`;
+  authPanel.innerHTML = `<p class="jwt-saved">JWT persisted in this browser. ${status} <button class="link-button" id="recheck-auth-button" type="button">Recheck</button> <button class="link-button" id="sign-out-button" type="button">Remove</button></p>`;
+}
+
+async function verifyStoredAuth(): Promise<void> {
+  authCheck = { status: "checking" };
+  renderAuthPanel();
+  authCheck = await checkAccessToken();
+  if (authCheck.status === "invalid") signOut();
+  renderAuthPanel();
 }
 
 async function completePendingAuth(): Promise<void> {
   const params = new URLSearchParams(window.location.search);
   if (!params.has("code") || !params.has("provider")) return;
   const result = await completeAuthCallback();
-  renderAuthPanel();
+  if (result.handled && !result.error) await verifyStoredAuth();
+  else renderAuthPanel();
   window.history.replaceState({}, "", buildAuthCallbackCleanUrl(window.location.href, import.meta.env.BASE_URL));
   if (result.error) setProgress(result.error, 1, true);
 }
@@ -266,6 +303,7 @@ async function completePendingAuth(): Promise<void> {
 function setBusy(busy: boolean): void {
   loadButton.disabled = busy;
   input.disabled = busy;
+  highResolutionTelemetry.disabled = busy;
 }
 
 function setProgress(message: string, fraction: number, error = false): void {
@@ -276,6 +314,10 @@ function setProgress(message: string, fraction: number, error = false): void {
 
 function rows(values: Array<[string, string]>): string {
   return values.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("");
+}
+
+function formatHz(value: number): string {
+  return value > 0 ? `${value.toFixed(value >= 10 ? 0 : 1)} Hz` : "unknown rate";
 }
 
 function badge(text: string, kind: string): string { return `<span class="state-badge ${kind}">${escapeHtml(text)}</span>`; }

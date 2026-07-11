@@ -13,6 +13,11 @@ boxes over the synchronized camera feed.
 Everything runs in the browser. Route logs, video, and JWTs are not uploaded to
 this project or a project-owned backend.
 
+JWTs entered in the private-route panel are persisted in that browser's local
+storage and verified against comma's `/v1/me/` endpoint when saved and restored.
+Rejected tokens are removed; temporary verification failures leave the local
+token intact so an API outage does not destroy credentials.
+
 ## Browser and video requirements
 
 openpilot uploads driver video as raw HEVC/H.265. This app downloads only the
@@ -45,6 +50,11 @@ https://connect.comma.ai/<dongle-id>/<route-id>/90/120
 
 The parser supports both the legacy flat Driver Monitoring state and the modern
 policy-based state (`visionPolicyState` and `wheeltouchPolicyState`).
+
+For fast browsing, the app uses qlogs by default (roughly 2 Hz DM telemetry).
+Enable **High-resolution DM telemetry** to prefer an available rlog and inspect
+the model and monitoring state at roughly 20 Hz. Rlogs are much larger because
+the full overlapping 60-second log segment must be downloaded and decompressed.
 
 ## Local development
 

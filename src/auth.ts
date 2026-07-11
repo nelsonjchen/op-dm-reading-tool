@@ -14,6 +14,13 @@ export interface AuthCallbackResult {
   error?: string;
 }
 
+export type AuthCheckResult =
+  | { status: "missing" }
+  | { status: "checking" }
+  | { status: "valid" }
+  | { status: "invalid"; httpStatus: number }
+  | { status: "error"; message: string };
+
 export function getAccessToken(): string | null {
   const storage = getStorage();
   return storage?.getItem(AUTH_STORAGE_KEY) ?? null;
@@ -41,6 +48,25 @@ export function isSignedIn(): boolean {
 export function authHeaders(): HeadersInit {
   const token = getAccessToken();
   return token ? { Authorization: `JWT ${token}` } : {};
+}
+
+export async function checkAccessToken(): Promise<AuthCheckResult> {
+  const token = getAccessToken();
+  if (!token) return { status: "missing" };
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/v1/me/`, { headers: authHeaders() });
+    if (response.ok) return { status: "valid" };
+    if (response.status === 401 || response.status === 403) {
+      return { status: "invalid", httpStatus: response.status };
+    }
+    return { status: "error", message: `comma auth check failed (${response.status}).` };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : String(error),
+    };
+  }
 }
 
 export function getOAuthProviders(): OAuthProvider[] {

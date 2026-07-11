@@ -48,10 +48,11 @@ export async function fetchRouteInfo(routeName: string): Promise<RouteInfo | nul
   return response.json();
 }
 
-export function orderedLogUrls(files: RouteFiles): string[] {
+export function orderedLogUrls(files: RouteFiles, preferRlogs = false): string[] {
   const qlogs = sortBySegment(files.qlogs ?? []);
-  if (qlogs.length > 0) return qlogs;
-  return sortBySegment(files.logs ?? []);
+  const rlogs = sortBySegment(files.logs ?? []);
+  if (preferRlogs) return rlogs.length > 0 ? rlogs : qlogs;
+  return qlogs.length > 0 ? qlogs : rlogs;
 }
 
 export function orderedQcameraUrls(files: RouteFiles): string[] {
@@ -62,7 +63,8 @@ export function orderedDcameraUrls(files: RouteFiles): string[] {
   return sortBySegment(files.dcameras ?? []);
 }
 
-export function logSourceLabel(files: RouteFiles): "qlogs" | "rlogs" | "none" {
+export function logSourceLabel(files: RouteFiles, preferRlogs = false): "qlogs" | "rlogs" | "none" {
+  if (preferRlogs && (files.logs ?? []).length > 0) return "rlogs";
   if ((files.qlogs ?? []).length > 0) return "qlogs";
   if ((files.logs ?? []).length > 0) return "rlogs";
   return "none";
