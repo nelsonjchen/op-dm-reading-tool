@@ -59,9 +59,18 @@ app.innerHTML = `
         <ol>
           <li>Enable driver-camera recording before the drive.</li>
           <li>When the false positive happens, tap the bookmark button shown above.</li>
-          <li>Upload that log and driver-camera segment in <a href="https://connect.comma.ai" target="_blank" rel="noreferrer">comma Connect</a>.</li>
-          <li>For a public route, use <a href="https://discord.com/channels/469524606043160576/1254834193066623017" target="_blank" rel="noreferrer">#driving-feedback</a>. To keep sensitive driver video private, post the private link and timestamps in <a href="https://discord.com/channels/469524606043160576/616456819027607567" target="_blank" rel="noreferrer">#openpilot-experience</a>; comma staff can access it, other Discord users cannot.</li>
+          <li>Let the log and driver-camera segment upload to <a href="https://connect.comma.ai" target="_blank" rel="noreferrer">comma Connect</a>.</li>
         </ol>
+        <div class="connect-tutorial">
+          <h4>Get the link from comma Connect</h4>
+          <ol>
+            <li>Open the drive in comma Connect and find its timeline strip at the top.</li>
+            <li>Click the timeline near the bookmarked moment to move the playhead there.</li>
+            <li>Click and drag across a short window around the moment, then release. Connect zooms into that selection; repeat if you need a tighter clip.</li>
+            <li>Copy the full URL from the address bar. A clipped link ends in <code>/start/end</code> and is the same kind of link accepted at the top of this tool.</li>
+          </ol>
+        </div>
+        <p class="feedback-destination"><strong>That Connect link and the bookmarked time are the evidence.</strong> These reports do get read: comma staff review submissions, and actionable reports may be acknowledged and <a href="https://discord.com/channels/469524606043160576/1524459897016549547/1524594138719322172" target="_blank" rel="noreferrer">added to known issues</a>. For a public route, send the evidence to <a href="https://discord.com/channels/469524606043160576/1254834193066623017" target="_blank" rel="noreferrer">#driving-feedback</a>. To keep sensitive driver video private, post the private link and timestamp in <a href="https://discord.com/channels/469524606043160576/616456819027607567" target="_blank" rel="noreferrer">#openpilot-experience</a>; comma staff can access it, other Discord users cannot.</p>
       </div>
       <p class="policy-sources">Sources: <a href="https://docs.comma.ai/contributing/feedback/" target="_blank" rel="noreferrer">comma's feedback guide</a> · <a href="https://comma.ai/support" target="_blank" rel="noreferrer">comma support policy</a></p>
     </section>

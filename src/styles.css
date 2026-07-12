@@ -141,6 +141,11 @@ dd { margin: 0; text-align: right; font-family: "SFMono-Regular", Consolas, mono
 .feedback-path ol { margin: 0; padding-left: 22px; color: #c3ced4; }
 .feedback-path li::marker { color: #57b8f8; font-weight: 800; }
 .feedback-path li + li { margin-top: 6px; }
+.connect-tutorial { margin-top: 18px; padding-top: 16px; border-top: 1px solid #27323a; }
+.connect-tutorial h4 { margin: 0 0 10px; color: #edf4f7; font-size: .96rem; }
+.connect-tutorial code { color: #8fd0fb; }
+.policy-note .feedback-destination { margin-top: 16px; color: #c3ced4; }
+.feedback-destination strong { color: #edf4f7; }
 .policy-note .policy-sources { color: #71838f; font-size: .78rem; }
 
 @media (max-width: 900px) {
