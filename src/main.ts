@@ -52,13 +52,15 @@ app.innerHTML = `
       <div class="feedback-path">
         <h3>Driver monitoring false positive? Send evidence.</h3>
         <p class="feedback-lead"><strong>Getting flagged while attentive?</strong> Capture one clean reproduction before changing driver monitoring:</p>
-        <figure class="bookmark-guide">
-          <img src="/bookmark-route-time.gif" width="540" height="540" loading="lazy" alt="The on-device bookmark button marking the exact time of a drive" />
-          <figcaption><strong>Bookmark it when it happens.</strong> Tap the on-device bookmark button during the false positive so the exact route time is easy to find later.</figcaption>
-        </figure>
         <ol>
           <li>Enable driver-camera recording before the drive.</li>
-          <li>When the false positive happens, tap the bookmark button shown above.</li>
+          <li>
+            When the false positive happens, tap the bookmark button.
+            <figure class="bookmark-guide">
+              <img src="/bookmark-route-time.gif" width="540" height="540" loading="lazy" alt="The on-device bookmark button marking the exact time of a drive" />
+              <figcaption><strong>Bookmark it when it happens.</strong> The bookmark makes the exact route time easy to find later.</figcaption>
+            </figure>
+          </li>
           <li>Let the log and driver-camera segment upload to <a href="https://connect.comma.ai" target="_blank" rel="noreferrer">comma Connect</a>.</li>
         </ol>
         <div class="connect-tutorial">
