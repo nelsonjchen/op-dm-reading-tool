@@ -113,3 +113,16 @@ test("opens and advances a route-time deep link", async ({ page }) => {
   await page.locator("#playback-toggle").click();
   await expect.poll(() => Number(new URL(page.url()).searchParams.get("t"))).toBeGreaterThan(270);
 });
+
+test("loads the public Mici demo from the route form", async ({ page }) => {
+  const demo = `${PUBLIC_MICI_ROUTE}/438/452`;
+  await page.goto("/");
+  await page.locator("#demo-button").click();
+  await expect(page.locator("#route-input")).toHaveValue(demo);
+  await expect(page.locator("#status-text")).toHaveText("Driver Monitoring debugger ready");
+  await expect(page.locator("#driver-box")).toBeVisible();
+  await expect(page.locator("#route-clock")).toHaveText("7:26.0");
+  await expect(page.locator("#model-values")).toContainText("87%");
+  await expect(page).toHaveURL(/[?&]t=446(?:&|$)/);
+  await expect(page).toHaveURL(new RegExp(`route=${encodeURIComponent(demo)}`));
+});

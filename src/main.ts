@@ -9,6 +9,9 @@ import type { ScanFinding } from "./scanLogic";
 import { buildDriverVideoUploadRequest, queueDriverVideoUpload, watchDriverVideoUpload } from "./uploads";
 import { DriverVideoPlayer, detectHevcSupport } from "./video";
 
+const PUBLIC_MICI_DEMO_ROUTE = "https://connect.comma.ai/5beb9b58bd12b691/0000010a--a51155e496/438/452";
+const PUBLIC_MICI_DEMO_TIME = 446;
+
 const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) throw new Error("Missing app element");
 
@@ -22,6 +25,7 @@ app.innerHTML = `
       <div class="input-row">
         <input id="route-input" autocomplete="off" spellcheck="false" placeholder="https://connect.comma.ai/&lt;dongle&gt;/&lt;route&gt;/&lt;start&gt;/&lt;end&gt;" />
         <button id="load-button" type="submit">Scan or load</button>
+        <button id="demo-button" class="secondary" type="button" title="Open a public Mici clip at an 87% phone-model peak">Try demo</button>
         <button id="share-button" class="secondary" type="button" disabled>Share</button>
       </div>
       <p class="form-help"><strong>New here?</strong> <a href="#how-to-use">See the basic instructions ↓</a></p>
@@ -112,6 +116,7 @@ app.innerHTML = `
 const form = byId<HTMLFormElement>("reader-form");
 const input = byId<HTMLInputElement>("route-input");
 const loadButton = byId<HTMLButtonElement>("load-button");
+const demoButton = byId<HTMLButtonElement>("demo-button");
 const shareButton = byId<HTMLButtonElement>("share-button");
 const highResolutionTelemetry = byId<HTMLInputElement>("high-resolution-telemetry");
 const authPanel = byId<HTMLElement>("auth-panel");
@@ -132,12 +137,16 @@ let routeTimeUpdateTimer: number | null = null;
 let pendingRouteTimeSeconds: number | null = null;
 let lastRouteTimeUpdate = Number.NEGATIVE_INFINITY;
 
+setBusy(true);
 renderAuthPanel();
-void initialize();
+void initialize().finally(() => setBusy(false));
 
 form.addEventListener("submit", (event) => {
   event.preventDefault();
   void handleRouteInput(input.value, true);
+});
+demoButton.addEventListener("click", () => {
+  void loadPublicMiciDemo();
 });
 shareButton.addEventListener("click", () => void navigator.clipboard.writeText(window.location.href));
 authPanel.addEventListener("click", (event) => {
@@ -190,6 +199,14 @@ async function handleRouteInput(routeInput: string, updateHistory: boolean): Pro
   } catch (error) {
     setProgress(error instanceof Error ? error.message : String(error), 1, true);
   }
+}
+
+async function loadPublicMiciDemo(): Promise<void> {
+  input.value = PUBLIC_MICI_DEMO_ROUTE;
+  const routeUrl = buildRouteShareUrl(window.location.origin, import.meta.env.BASE_URL, PUBLIC_MICI_DEMO_ROUTE);
+  window.history.pushState({}, "", buildRouteTimeUrl(routeUrl, PUBLIC_MICI_DEMO_TIME));
+  shareButton.disabled = false;
+  await loadRoute(PUBLIC_MICI_DEMO_ROUTE, false);
 }
 
 async function scanRoute(routeInput: string, updateHistory: boolean): Promise<void> {
@@ -655,6 +672,7 @@ async function completePendingAuth(): Promise<void> {
 
 function setBusy(busy: boolean): void {
   loadButton.disabled = busy;
+  demoButton.disabled = busy;
   input.disabled = busy;
   highResolutionTelemetry.disabled = busy;
 }

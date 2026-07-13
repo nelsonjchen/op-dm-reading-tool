@@ -28,7 +28,7 @@ h3 { margin-bottom: 14px; color: #9aa8b3; font-size: .78rem; letter-spacing: .1e
 .reader-form, .status-panel, .viewer { border: 1px solid #27323a; border-radius: 12px; background: rgba(16, 21, 26, .94); }
 .reader-form { padding: 18px; }
 label { display: block; margin-bottom: 8px; font-weight: 800; }
-.input-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; }
+.input-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 10px; }
 .form-help { margin: 11px 0 0; color: #b6c2ca; }
 .form-help strong { color: #e8edf2; }
 .form-help a { font-weight: 800; }
@@ -186,7 +186,7 @@ dd { margin: 0; text-align: right; font-family: "SFMono-Regular", Consolas, mono
 
 @media (max-width: 900px) {
   .debug-grid, .info-notes, .usage-steps { grid-template-columns: 1fr 1fr; }
-  .input-row { grid-template-columns: 1fr 1fr; }
+  .input-row { grid-template-columns: 1fr 1fr 1fr; }
   .input-row input { grid-column: 1 / -1; }
   .viewer-header { align-items: flex-start; flex-direction: column; }
   .route-meta { justify-content: flex-start; }
