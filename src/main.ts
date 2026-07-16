@@ -635,7 +635,9 @@ function renderTelemetry(routeSeconds: number): void {
     ["engaged / hands", `${vehicle?.enabled ? "yes" : "no"} / ${vehicle?.steeringPressed ? "on" : "off"}`],
   ]);
   byId<HTMLElement>("model-values").innerHTML = rows([
-    ["selected / other / RHD", `${percent(selected?.faceProb)} / ${percent(other?.faceProb)} / ${percent(model.wheelOnRightProb)}`],
+    ["driver-seat face confidence", percent(selected?.faceProb)],
+    ["other-seat face confidence", percent(other?.faceProb)],
+    ["right-hand-drive confidence", percent(model.wheelOnRightProb)],
     ["eyes L / R", `${percent(selected?.leftEyeProb)} / ${percent(selected?.rightEyeProb)}`],
     ["blink L / R", `${percent(selected?.leftBlinkProb)} / ${percent(selected?.rightBlinkProb)}`],
     ["sunglasses / phone", `${percent(selected?.sunglassesProb)} / ${percent(selected?.phoneProb)}`],
