@@ -94,7 +94,8 @@ label { display: block; margin-bottom: 8px; font-weight: 800; }
 .video-load-panel { display: grid; justify-items: center; gap: 10px; padding: 24px; text-align: center; }
 .video-load-panel p, .video-load-panel small { margin: 0; }
 .video-load-panel small { color: #687985; }
-.model-input-frame { position: absolute; left: 12%; right: 12%; top: 8%; bottom: 10%; border: 1px dashed rgba(63, 218, 137, .28); pointer-events: none; }
+.model-input-frame { position: absolute; left: 12%; right: 12%; top: 8%; bottom: 10%; border: 2px dashed rgba(77, 232, 143, .78); box-shadow: 0 0 0 1px rgba(0,0,0,.72), inset 0 0 0 1px rgba(0,0,0,.46); pointer-events: none; }
+.model-input-frame::before { content: "MODEL INPUT"; position: absolute; top: -1px; left: -1px; padding: 3px 6px; background: rgba(5,12,10,.86); border: 1px solid rgba(77,232,143,.78); color: #79eda8; font-size: .6rem; font-weight: 900; letter-spacing: .08em; line-height: 1; }
 .face-box { position: absolute; min-width: 70px; border: 3px solid #4de08e; border-radius: 12px; background: rgba(77, 224, 142, .07); box-shadow: 0 0 0 2px rgba(0,0,0,.65); cursor: pointer; pointer-events: auto; touch-action: manipulation; transition: opacity .14s ease; }
 .face-box span { position: absolute; left: -3px; bottom: 100%; padding: 3px 6px; border-radius: 4px 4px 0 0; background: #4de08e; color: #07110b; font-size: .65rem; font-weight: 900; white-space: nowrap; }
 .other-box { border-color: #ffbb66; background: rgba(255,187,102,.07); }

@@ -73,8 +73,8 @@ app.innerHTML = `
       </ol>
     </section>
     <section class="policy-note">
-      <h2>Open code. Conditional services.</h2>
-      <p><a href="https://github.com/commaai/openpilot" target="_blank" rel="noreferrer">openpilot's MIT license</a> lets you inspect, change, and run the software. Access to comma's servers is separate.</p>
+      <h2>Open code. Your hardware. Conditional online services.</h2>
+      <p><a href="https://github.com/commaai/openpilot" target="_blank" rel="noreferrer">openpilot's MIT license</a> lets you inspect, change, and run the software. The hardware you bought is yours, too: you can modify the device and choose what software it runs. Access to comma's servers and shop is separate and conditional.</p>
       <ul class="policy-points">
         <li><strong>Do not weaken driver monitoring if you use comma's services.</strong> comma's <a href="https://github.com/commaai/openpilot/blob/master/docs/SAFETY.md#forks-of-openpilot" target="_blank" rel="noreferrer">fork safety policy</a> says violations can get a fork and its users banned. Nerfed timings and other bypasses have historically been detected through uploaded telemetry; the complete rules are not public.</li>
         <li><strong>The stated consequences can extend beyond Connect.</strong> In a <a href="https://discord.com/channels/469524606043160576/954493346250887168/1526980696894345480" target="_blank" rel="noreferrer">public warning about modified driver-monitoring code</a>, George Hotz says comma will ban offenders from its servers and, when it can identify them, from its shop.</li>
