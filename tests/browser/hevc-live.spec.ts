@@ -190,6 +190,14 @@ test("loads the public Mici demo from the route form", async ({ page }) => {
   const driverBox = page.locator("#driver-box");
   await expect(driverBox).toBeVisible();
   await expect(driverBox).toHaveAttribute("data-camera-profile", "mici");
+  const poseGizmo = page.locator("#driver-pose");
+  await expect(poseGizmo).toBeVisible();
+  await expect(poseGizmo).toHaveAttribute("data-pose-source", "dm");
+  await expect(poseGizmo).toHaveAttribute("data-placement", "right");
+  await expect(poseGizmo).toHaveAttribute("aria-label", /Driver monitoring pose:/);
+  await expect(page.locator("#pose-history-chart .raw-pitch-line")).toHaveCount(1);
+  await expect(page.locator("#pose-history-chart .dm-pitch-line")).toHaveCount(1);
+  await expect(page.locator("#pose-history-summary")).toContainText("learned neutral");
   const faceBoxGeometry = await driverBox.evaluate((element) => {
     const box = element.getBoundingClientRect();
     const shell = element.parentElement!.getBoundingClientRect();
@@ -197,6 +205,14 @@ test("loads the public Mici demo from the route form", async ({ page }) => {
   });
   expect(Math.abs(faceBoxGeometry.width - faceBoxGeometry.height)).toBeLessThan(1);
   expect(faceBoxGeometry.widthRatio).toBeCloseTo(75 / 536, 3);
+  const poseGeometry = await poseGizmo.evaluate((element) => {
+    const pose = element.getBoundingClientRect();
+    const box = document.querySelector("#driver-box")!.getBoundingClientRect();
+    return { gap: pose.left - box.right, centerDeltaY: Math.abs((pose.top + pose.height / 2) - (box.top + box.height / 2)), smallerThanBox: pose.width < box.width };
+  });
+  expect(poseGeometry.gap).toBeGreaterThan(0);
+  expect(poseGeometry.centerDeltaY).toBeLessThan(1);
+  expect(poseGeometry.smallerThanBox).toBe(true);
   await expect(page.locator("#route-clock")).toHaveText("7:26.0");
   await expect(page.locator("#model-values")).toContainText("87%");
   await expect(page.locator(".model-input-frame")).toHaveCSS("border-top-width", "2px");
@@ -207,6 +223,11 @@ test("loads the public Mici demo from the route form", async ({ page }) => {
   await expect(page.locator(".timeline-alert-marker")).toHaveCount(0);
   await expect(page).toHaveURL(/[?&]t=446(?:&|$)/);
   await expect(page).toHaveURL(new RegExp(`route=${encodeURIComponent(demo)}`));
+  await page.locator("#pose-overlay-mode").selectOption("raw");
+  await expect(poseGizmo).toHaveAttribute("data-pose-source", "raw");
+  await page.locator("#mark-pose-neutral").click();
+  await expect(page.locator("#pose-history-summary")).toContainText("marked neutral");
+  await expect(page.locator("#mark-pose-neutral")).toHaveText("Clear marked neutral");
   await driverBox.hover();
   await expect(driverBox).toHaveCSS("opacity", "0.12");
   await driverBox.click();

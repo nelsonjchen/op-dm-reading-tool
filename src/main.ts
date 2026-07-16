@@ -3,6 +3,7 @@ import { checkAccessToken, completeAuthCallback, isSignedIn, setAccessToken, sig
 import { loadDriverDebugRoute, MissingDriverVideoError, type DriverDebugRoute } from "./debugger";
 import { sampleAt, selectDriver, type DriverModelData, type DriverMonitoringSample } from "./dm";
 import { formatModelProvenance, modelProvenanceDetails, resolveDmModelProvenance, routeModelProvenance } from "./modelProvenance";
+import { collectPoseHistory, formatAbsoluteDegrees, formatPitchDegrees, formatSignedDegrees, poseVectorGeometry, poseWidgetLayout, poseYawForVideo, radiansToDegrees, ticiFacePolyline, type PoseOverlayMode } from "./pose";
 import { buildAuthCallbackCleanUrl, buildRouteShareUrl, buildRouteTimeUrl, parseRouteInput, routeInputFromUrl, routeTimeFromUrl } from "./routeInput";
 import { scanDriverMonitoringRoute, type RouteScanUpdate } from "./scan";
 import type { ScanFinding } from "./scanLogic";
@@ -148,6 +149,8 @@ let authCheck: AuthCheckResult = isSignedIn() ? { status: "checking" } : { statu
 let routeTimeUpdateTimer: number | null = null;
 let pendingRouteTimeSeconds: number | null = null;
 let lastRouteTimeUpdate = Number.NEGATIVE_INFINITY;
+let poseNeutralBaseline: { pitch: number; yaw: number; roll: number } | null = null;
+let poseOverlayMode: PoseOverlayMode = "dm";
 
 setBusy(true);
 renderAuthPanel();
@@ -228,6 +231,7 @@ async function scanRoute(routeInput: string, updateHistory: boolean): Promise<vo
   videoPlayer?.destroy();
   videoPlayer = null;
   currentDriverVideoSize = null;
+  poseNeutralBaseline = null;
   currentRoute = null;
   const controller = new AbortController();
   currentScanController = controller;
@@ -262,6 +266,7 @@ async function loadRoute(routeInput: string, updateHistory: boolean): Promise<vo
   videoPlayer?.destroy();
   videoPlayer = null;
   currentDriverVideoSize = null;
+  poseNeutralBaseline = null;
   input.value = routeInput.trim();
   if (updateHistory) {
     window.history.pushState({}, "", buildRouteShareUrl(window.location.origin, import.meta.env.BASE_URL, routeInput));
@@ -430,6 +435,15 @@ function renderViewer(route: DriverDebugRoute): void {
       <div class="model-input-frame" aria-hidden="true"></div>
       <div id="driver-box" class="face-box driver-box" role="button" tabindex="0" aria-label="Fade driver seat overlay" aria-pressed="false" title="Hover or tap to see the face" hidden><span>DRIVER SEAT</span></div>
       <div id="other-box" class="face-box other-box" role="button" tabindex="0" aria-label="Fade other seat overlay" aria-pressed="false" title="Hover or tap to see the face" hidden><span>OTHER SEAT</span></div>
+      <div id="driver-pose" class="pose-gizmo" role="img" hidden>
+        <svg viewBox="0 0 100 100" aria-hidden="true">
+          <circle class="pose-widget-background" cx="50" cy="50" r="47"></circle>
+          <circle class="pose-uncertainty" cx="50" cy="50" r="42"></circle>
+          <path class="pose-yaw-arc"></path>
+          <path class="pose-pitch-arc"></path>
+          <polyline class="pose-face-outline"></polyline>
+        </svg>
+      </div>
       <div id="video-placeholder" class="video-placeholder">
         <div class="video-load-panel">
           <p id="video-placeholder-copy">${support.supported ? "Preparing driver video…" : "HEVC video unsupported — telemetry is still available."}</p>
@@ -466,6 +480,27 @@ function renderViewer(route: DriverDebugRoute): void {
       <article class="debug-card"><h3>Model</h3><dl id="model-values"></dl></article>
       <article class="debug-card"><h3>Pose</h3><dl id="pose-values"></dl></article>
     </div>
+    <article class="history-card pose-history-card">
+      <div class="history-heading pose-history-heading">
+        <div><h3>Head pose · 20 second history</h3><p id="pose-history-summary" class="pose-history-summary">--</p></div>
+        <div class="pose-history-controls">
+          <label for="pose-overlay-mode">Video overlay
+            <select id="pose-overlay-mode">
+              <option value="dm"${poseOverlayMode === "dm" ? " selected" : ""}>DM pose</option>
+              <option value="raw"${poseOverlayMode === "raw" ? " selected" : ""}>Raw model</option>
+            </select>
+          </label>
+          <button id="mark-pose-neutral" class="secondary" type="button">Mark frame neutral</button>
+        </div>
+      </div>
+      <div class="history-legend pose-history-legend" aria-label="Head pose history legend">
+        <span><i class="legend-raw-pitch"></i>Raw model pitch</span>
+        <span><i class="legend-dm-pitch"></i>DM pose</span>
+        <span><i class="legend-pitch-offset"></i>Learned neutral</span>
+        <span><i class="legend-pose-distraction"></i>Pose distraction (pitch or yaw)</span>
+      </div>
+      <svg id="pose-history-chart" viewBox="0 0 1000 210" preserveAspectRatio="none" aria-label="Raw model and driver monitoring pitch history"></svg>
+    </article>
     <article class="history-card">
       <div class="history-heading">
         <h3>20 second history</h3>
@@ -495,6 +530,26 @@ function renderViewer(route: DriverDebugRoute): void {
   }
   scrubber.style.setProperty("--dm-timeline", buildMonitoringTimelineGradient(route.monitoring, route.startSeconds, route.endSeconds, route.models));
   const playbackToggle = byId<HTMLButtonElement>("playback-toggle");
+  const poseMode = byId<HTMLSelectElement>("pose-overlay-mode");
+  poseMode.addEventListener("change", () => {
+    poseOverlayMode = poseMode.value === "raw" ? "raw" : "dm";
+    renderTelemetry(Number(scrubber.value));
+  });
+  byId<HTMLButtonElement>("mark-pose-neutral").addEventListener("click", () => {
+    if (poseNeutralBaseline) {
+      poseNeutralBaseline = null;
+    } else {
+      const routeSeconds = Number(scrubber.value);
+      const monitoring = sampleAt(route.monitoring, routeSeconds) ?? route.monitoring[0];
+      const model = sampleAt(route.models, routeSeconds) ?? route.models[0];
+      const { selected } = selectDriver(model, monitoring);
+      if (selected && selected.faceOrientation.length >= 3) {
+        const [pitch, yaw, roll] = selected.faceOrientation;
+        if ([pitch, yaw, roll].every(Number.isFinite)) poseNeutralBaseline = { pitch, yaw, roll };
+      }
+    }
+    renderTelemetry(Number(scrubber.value));
+  });
   if (support.supported) {
     byId<HTMLButtonElement>("load-video-button").addEventListener("click", () => void loadRequestedVideo(route));
   }
@@ -652,16 +707,60 @@ function renderTelemetry(routeSeconds: number): void {
     ["model / gpu", `${model.modelExecutionTime.toFixed(3)}s / ${model.gpuExecutionTime.toFixed(3)}s`],
   ]);
   byId<HTMLElement>("pose-values").innerHTML = rows([
-    ["orientation", vector(selected?.faceOrientation)],
-    ["position", vector(selected?.facePosition)],
-    ["orient std", vector(selected?.faceOrientationStd)],
-    ["pos std", vector(selected?.facePositionStd)],
-    ["pitch off / calib", `${monitoring.pitchOffset.toFixed(3)} / ${monitoring.pitchCalibratedPercent}%`],
-    ["yaw off / calib", `${monitoring.yawOffset.toFixed(3)} / ${monitoring.yawCalibratedPercent}%`],
+    ["raw pitch / yaw / roll", poseTriplet(selected?.faceOrientation)],
+    ["DM pitch / yaw", monitoring.schema === "modern" ? `${formatSignedDegrees(monitoring.posePitch)} / ${formatSignedDegrees(monitoring.poseYaw)}` : "not logged by legacy DM state"],
+    ["learned pitch / yaw", `${formatSignedDegrees(monitoring.pitchOffset)} / ${formatSignedDegrees(monitoring.yawOffset)}`],
+    ["manual neutral / delta", manualNeutralSummary(selected)],
+    ["orientation std", poseTriplet(selected?.faceOrientationStd, false)],
+    ["DM uncertainty", monitoring.schema === "modern" ? formatAbsoluteDegrees(monitoring.poseUncertainty) : "not logged"],
+    ["face position / std", `${vector(selected?.facePosition)} · ${vector(selected?.facePositionStd)}`],
+    ["pitch / yaw calibrated", `${monitoring.pitchCalibratedPercent}% / ${monitoring.yawCalibratedPercent}%`],
   ]);
   renderFaceBox("driver-box", selected, route.routeInfo?.deviceType ?? "");
   renderFaceBox("other-box", other, route.routeInfo?.deviceType ?? "");
+  renderPoseGizmo(selected, monitoring);
+  renderPoseHistory(routeSeconds, monitoring, selected);
   renderHistory(routeSeconds, monitoring);
+}
+
+function renderPoseGizmo(driver: DriverModelData | null, monitoring: DriverMonitoringSample): void {
+  const box = byId<HTMLElement>("driver-box");
+  const gizmo = byId<HTMLElement>("driver-pose");
+  const raw = driver?.faceOrientation;
+  const useDm = poseOverlayMode === "dm" && monitoring.schema === "modern";
+  const pitch = useDm ? monitoring.posePitch : raw?.[0];
+  const yaw = useDm ? monitoring.poseYaw : raw?.[1];
+  const roll = raw?.[2];
+  const uncertainty = useDm ? monitoring.poseUncertainty : Math.max(driver?.faceOrientationStd[0] ?? 0, driver?.faceOrientationStd[1] ?? 0);
+  const videoYaw = yaw === undefined ? undefined : poseYawForVideo(yaw, useDm ? "dm" : "raw", monitoring.isRhd);
+  const geometry = poseVectorGeometry(pitch, videoYaw, roll, uncertainty);
+  if (box.hidden || !geometry) {
+    gizmo.hidden = true;
+    return;
+  }
+  const boxCenter = Number.parseFloat(box.style.left);
+  const boxWidth = Number.parseFloat(box.style.width);
+  const layout = poseWidgetLayout(boxCenter, boxWidth, monitoring.isRhd);
+  gizmo.style.left = `${layout.centerX}%`;
+  gizmo.style.top = box.style.top;
+  gizmo.style.width = `${layout.width}%`;
+  gizmo.dataset.poseSource = useDm ? "dm" : "raw";
+  gizmo.dataset.placement = layout.placement;
+  gizmo.classList.toggle("pose-distracted", monitoring.distractedTypes.includes("pose"));
+  const uncertaintyCircle = gizmo.querySelector<SVGCircleElement>(".pose-uncertainty")!;
+  uncertaintyCircle.style.strokeWidth = `${Math.max(1, geometry.uncertaintyRadius / 4).toFixed(2)}`;
+  gizmo.querySelector<SVGPolylineElement>(".pose-face-outline")!.setAttribute("points", ticiFacePolyline([pitch ?? 0, videoYaw ?? 0, roll ?? 0]));
+  const yawAmount = Math.max(-1, Math.min(1, geometry.yawDegrees / 35));
+  const pitchAmount = Math.max(-1, Math.min(1, geometry.pitchDegrees / 35));
+  const yawArc = gizmo.querySelector<SVGPathElement>(".pose-yaw-arc")!;
+  yawArc.setAttribute("d", `M 50 16 Q ${(50 + yawAmount * 27).toFixed(2)} 50 50 84`);
+  yawArc.style.opacity = String(Math.min(0.9, Math.abs(yawAmount) * 0.9));
+  const pitchArc = gizmo.querySelector<SVGPathElement>(".pose-pitch-arc")!;
+  pitchArc.setAttribute("d", `M 17 50 Q 50 ${(50 - pitchAmount * 27).toFixed(2)} 83 50`);
+  pitchArc.style.opacity = String(Math.min(0.9, Math.abs(pitchAmount) * 0.9));
+  const source = useDm ? "DM" : "RAW";
+  gizmo.setAttribute("aria-label", `${source === "DM" ? "Driver monitoring" : "Raw model"} pose: pitch ${formatPitchDegrees(pitch)}, yaw ${formatSignedDegrees(yaw)}, roll ${formatSignedDegrees(roll)}`);
+  gizmo.hidden = false;
 }
 
 function renderFaceBox(id: string, driver: DriverModelData | null, deviceType: string): void {
@@ -703,6 +802,81 @@ function renderHistory(routeSeconds: number, current: DriverMonitoringSample): v
     return `<rect x="${x.toFixed(1)}" y="${150 + lane * 12}" width="10" height="8" class="lane-${kind}" />`;
   }).join("")).join("");
   byId<SVGElement>("history-chart").innerHTML = `<line x1="0" y1="135" x2="1000" y2="135" class="chart-grid"/><polyline points="${points}" class="awareness-line"/>${lanes}<text x="8" y="18">awareness · ${percent(current.awareness)}</text>`;
+}
+
+function renderPoseHistory(routeSeconds: number, current: DriverMonitoringSample, driver: DriverModelData | null): void {
+  const route = currentRoute;
+  if (!route) return;
+  const start = routeSeconds - 20;
+  const { raw, dm } = collectPoseHistory(route.models, route.monitoring, start, routeSeconds);
+  const x = (seconds: number) => ((seconds - start) / 20) * 1000;
+  const y = (radians: number) => 100 - Math.max(-35, Math.min(35, radiansToDegrees(radians))) / 35 * 76;
+  const rawPoints = raw.map((point) => `${x(point.routeSeconds).toFixed(1)},${y(point.pitch).toFixed(1)}`).join(" ");
+  const dmPoints = dm.map((point) => `${x(point.routeSeconds).toFixed(1)},${y(point.pitch).toFixed(1)}`).join(" ");
+  const offsetPoints = dm.map((point) => `${x(point.routeSeconds).toFixed(1)},${y(point.neutralOffset).toFixed(1)}`).join(" ");
+  const uncertaintyBand = raw.length > 1
+    ? [...raw.map((point) => `${x(point.routeSeconds).toFixed(1)},${y(point.pitch + point.uncertainty).toFixed(1)}`),
+      ...[...raw].reverse().map((point) => `${x(point.routeSeconds).toFixed(1)},${y(point.pitch - point.uncertainty).toFixed(1)}`)].join(" ")
+    : "";
+  const distractionRegions = poseDistractionRegions(dm, start, routeSeconds, x);
+  const manualNeutralLine = poseNeutralBaseline
+    ? `<line x1="0" y1="${y(poseNeutralBaseline.pitch).toFixed(1)}" x2="1000" y2="${y(poseNeutralBaseline.pitch).toFixed(1)}" class="manual-neutral-line" />`
+    : "";
+  byId<SVGElement>("pose-history-chart").innerHTML = `
+    ${distractionRegions}
+    <line x1="0" y1="24" x2="1000" y2="24" class="pose-chart-grid" />
+    <line x1="0" y1="100" x2="1000" y2="100" class="pose-chart-zero" />
+    <line x1="0" y1="176" x2="1000" y2="176" class="pose-chart-grid" />
+    <text x="8" y="19">+35° UP</text><text x="8" y="95">0°</text><text x="8" y="198">−35° DOWN</text>
+    ${uncertaintyBand ? `<polygon points="${uncertaintyBand}" class="raw-pitch-uncertainty" />` : ""}
+    ${offsetPoints ? `<polyline points="${offsetPoints}" class="pitch-offset-line" />` : ""}
+    ${dmPoints ? `<polyline points="${dmPoints}" class="dm-pitch-line" />` : ""}
+    ${rawPoints ? `<polyline points="${rawPoints}" class="raw-pitch-line" />` : ""}
+    ${manualNeutralLine}`;
+  const rawPitch = driver?.faceOrientation[0];
+  const rawYaw = driver?.faceOrientation[1];
+  const dmSummary = current.schema === "modern"
+    ? `DM pitch ${formatPitchDegrees(current.posePitch)} · yaw ${formatSignedDegrees(current.poseYaw)}`
+    : "DM pose unavailable in legacy state";
+  const neutralSummary = poseNeutralBaseline && rawPitch !== undefined
+    ? ` · marked neutral ${formatSignedDegrees(poseNeutralBaseline.pitch)} · Δ ${formatSignedDegrees(rawPitch - poseNeutralBaseline.pitch)}`
+    : "";
+  byId<HTMLElement>("pose-history-summary").textContent = `Raw pitch ${formatPitchDegrees(rawPitch)} · yaw ${formatSignedDegrees(rawYaw)} · ${dmSummary} · learned pitch neutral ${formatSignedDegrees(current.pitchOffset)}${neutralSummary}`;
+  const neutralButton = byId<HTMLButtonElement>("mark-pose-neutral");
+  neutralButton.textContent = poseNeutralBaseline ? "Clear marked neutral" : "Mark frame neutral";
+  neutralButton.disabled = !poseNeutralBaseline && (rawPitch === undefined || !Number.isFinite(rawPitch));
+}
+
+function poseDistractionRegions(
+  points: Array<{ routeSeconds: number; poseDistracted: boolean }>,
+  startSeconds: number,
+  endSeconds: number,
+  x: (seconds: number) => number,
+): string {
+  let intervalStart: number | null = null;
+  const intervals: Array<[number, number]> = [];
+  for (let index = 0; index < points.length; index += 1) {
+    const point = points[index];
+    if (point.poseDistracted && intervalStart === null) intervalStart = Math.max(startSeconds, point.routeSeconds);
+    const next = points[index + 1];
+    if (intervalStart !== null && (!next || !next.poseDistracted)) {
+      intervals.push([intervalStart, Math.min(endSeconds, next?.routeSeconds ?? endSeconds)]);
+      intervalStart = null;
+    }
+  }
+  return intervals.map(([from, to]) => `<rect x="${x(from).toFixed(1)}" y="24" width="${Math.max(1, x(to) - x(from)).toFixed(1)}" height="152" class="pose-distraction-region" />`).join("");
+}
+
+function poseTriplet(values: number[] | undefined, signed = true): string {
+  if (!values || values.length < 3) return "--";
+  return values.slice(0, 3).map((value) => signed ? formatSignedDegrees(value) : `${Math.abs(radiansToDegrees(value)).toFixed(1)}°`).join(" / ");
+}
+
+function manualNeutralSummary(driver: DriverModelData | null): string {
+  if (!poseNeutralBaseline) return "not marked";
+  const pitch = driver?.faceOrientation[0];
+  if (pitch === undefined || !Number.isFinite(pitch)) return formatSignedDegrees(poseNeutralBaseline.pitch);
+  return `${formatSignedDegrees(poseNeutralBaseline.pitch)} / Δ ${formatSignedDegrees(pitch - poseNeutralBaseline.pitch)}`;
 }
 
 function renderAuthPanel(): void {
