@@ -9,7 +9,7 @@ import { scanDriverMonitoringRoute, type RouteScanUpdate } from "./scan";
 import type { ScanFinding } from "./scanLogic";
 import { buildMonitoringTimelineGradient, buildOnDeviceAlertMarkers, monitoringTimelineNote } from "./timeline";
 import { buildDriverVideoUploadRequest, queueDriverVideoUpload, watchDriverVideoUpload } from "./uploads";
-import { DriverVideoPlayer, detectHevcSupport } from "./video";
+import { DriverVideoPlayer, detectHevcSupport, type HevcSupport } from "./video";
 
 const PUBLIC_MICI_DEMO_ROUTE = "https://connect.comma.ai/5beb9b58bd12b691/0000010a--a51155e496/438/452";
 const PUBLIC_MICI_DEMO_TIME = 446;
@@ -137,13 +137,34 @@ const statusText = byId<HTMLElement>("status-text");
 const progressBar = byId<HTMLElement>("progress-bar");
 const viewer = byId<HTMLElement>("viewer");
 const support = detectHevcSupport();
-byId<HTMLElement>("codec-summary").textContent = support.supported
-  ? (support.managed
-    ? `Native HEVC via Managed Media Source (${support.codec}).`
-    : `Native HEVC is available (${support.codec}).`)
-  : (support.htmlVideo
-    ? "Driver video needs iOS 17.1+ (Managed Media Source). Telemetry is still available."
-    : "Native HEVC/MSE is unavailable in this browser. Video will be disabled.");
+
+// Shared between the codec banner and the video placeholder so the
+// managed-MSE wording lives in one place.
+const MANAGED_SUPPORT_MESSAGE = "Driver video needs iOS 17.1+ (Managed Media Source). Telemetry is still available.";
+
+// Banner copy for the HEVC support card: which backend plays the clip, or why
+// it can't. Three states — standard MediaSource, managed-only (iOS 17.1+),
+// or unsupported.
+function describeHevcSupport(support: HevcSupport): string {
+  if (support.supported) {
+    return support.managed
+      ? `Native HEVC via Managed Media Source (${support.codec}).`
+      : `Native HEVC is available (${support.codec}).`;
+  }
+  return support.htmlVideo
+    ? MANAGED_SUPPORT_MESSAGE
+    : "Native HEVC/MSE is unavailable in this browser. Video will be disabled.";
+}
+
+// Placeholder copy in the video panel. Differs from the banner only on the
+// supported arm (where the panel shows a loading hint, not a codec summary);
+// the unsupported arms share wording with the banner.
+function describeVideoPlaceholder(support: HevcSupport): string {
+  if (support.supported) return "Preparing driver video…";
+  return support.htmlVideo ? MANAGED_SUPPORT_MESSAGE : "HEVC video unsupported — telemetry is still available.";
+}
+
+byId<HTMLElement>("codec-summary").textContent = describeHevcSupport(support);
 
 let currentRoute: DriverDebugRoute | null = null;
 let videoPlayer: DriverVideoPlayer | null = null;
@@ -457,7 +478,7 @@ function renderViewer(route: DriverDebugRoute): void {
       </div>
       <div id="video-placeholder" class="video-placeholder">
         <div class="video-load-panel">
-          <p id="video-placeholder-copy">${support.supported ? "Preparing driver video…" : support.htmlVideo ? "Driver video needs iOS 17.1+ (Managed Media Source). Telemetry is still available." : "HEVC video unsupported — telemetry is still available."}</p>
+          <p id="video-placeholder-copy">${describeVideoPlaceholder(support)}</p>
           ${support.supported ? `<button id="load-video-button" type="button">Load driver video</button><small>Downloads the selected byte range and remuxes it in memory.</small>` : ""}
         </div>
       </div>

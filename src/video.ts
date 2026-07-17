@@ -110,9 +110,7 @@ export class DriverVideoPlayer {
   private playbackGeneration = 0;
   playbackRouteStart = 0;
 
-  // When true, playback goes through ManagedMediaSource (iOS 17.1+). The
-  // caller must ensure the bound <video> element carries the `managed`
-  // attribute and disableRemotePlayback before load() assigns the source.
+  // managed=true selects the ManagedMediaSource (iOS 17.1+) path; see HevcSupport.managed.
   constructor(private readonly video: HTMLVideoElement, private readonly managed: boolean) {}
 
   get isPlaybackRequested(): boolean {
@@ -325,12 +323,9 @@ export class DriverVideoPlayer {
     this.abortController?.abort();
     this.abortController = null;
     this.pause();
-    this.video.removeAttribute("src");
-    // On the managed path the source was attached via a <source> child; remove
-    // it so the element is clean for a future attach, and drop the Safari gate.
-    for (const existing of this.video.querySelectorAll("source")) existing.remove();
-    if (this.managed) this.video.disableRemotePlayback = false;
-    this.video.load();
+    // Clear the attach: src attribute, <source> children, and the managed-path
+    // remote-playback gate. See detachMediaSource / attachMediaSource.
+    detachMediaSource(this.video, this.managed);
     if (this.objectUrl) URL.revokeObjectURL(this.objectUrl);
     this.objectUrl = null;
     this.mediaSource = null;
@@ -588,6 +583,13 @@ function frameKey(frame: DriverVideoFrameIndex): string {
   return `${frame.segment}:${frame.presentationIndex}`;
 }
 
+// Remove any <source> children from a <video> element. Used both to clear
+// stale children before attaching a fresh source and to tear down an
+// attachment, so the removal logic has a single home.
+function clearSourceChildren(video: HTMLVideoElement): void {
+  for (const existing of video.querySelectorAll("source")) existing.remove();
+}
+
 // Attach a (Managed)MediaSource object URL to a <video> element.
 //
 // Standard MediaSource: set `video.src` directly (works everywhere).
@@ -606,11 +608,21 @@ function attachMediaSource(video: HTMLVideoElement, objectUrl: string, managed: 
   }
   video.disableRemotePlayback = true;
   video.removeAttribute("src");
-  for (const existing of video.querySelectorAll("source")) existing.remove();
+  clearSourceChildren(video);
   const source = document.createElement("source");
   source.type = "video/mp4";
   source.src = objectUrl;
   video.appendChild(source);
+  video.load();
+}
+
+// Tear down a (Managed)MediaSource attachment so the element is clean for a
+// future attach. Pairs with attachMediaSource: drops the `src` attribute, any
+// <source> children, and (on the managed path) the Safari remote-playback gate.
+function detachMediaSource(video: HTMLVideoElement, managed: boolean): void {
+  video.removeAttribute("src");
+  clearSourceChildren(video);
+  if (managed) video.disableRemotePlayback = false;
   video.load();
 }
 
