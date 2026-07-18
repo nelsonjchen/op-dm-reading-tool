@@ -4,6 +4,7 @@ import { loadDriverDebugRoute, MissingDriverVideoError, type DriverDebugRoute } 
 import { sampleAt, selectDriver, type DriverModelData, type DriverMonitoringSample } from "./dm";
 import { formatModelProvenance, modelProvenanceDetails, resolveDmModelProvenance, routeModelProvenance } from "./modelProvenance";
 import { collectPoseHistory, formatAbsoluteDegrees, formatPitchDegrees, formatSignedDegrees, poseVectorGeometry, poseWidgetLayout, poseYawForVideo, radiansToDegrees, ticiFacePolyline, type PoseOverlayMode } from "./pose";
+import { PictureBoxTracker } from "./picture-box";
 import { buildAuthCallbackCleanUrl, buildRouteShareUrl, buildRouteTimeUrl, parseRouteInput, routeInputFromUrl, routeTimeFromUrl } from "./routeInput";
 import { scanDriverMonitoringRoute, type RouteScanUpdate } from "./scan";
 import type { ScanFinding } from "./scanLogic";
@@ -143,6 +144,7 @@ byId<HTMLElement>("codec-summary").textContent = support.supported
 
 let currentRoute: DriverDebugRoute | null = null;
 let videoPlayer: DriverVideoPlayer | null = null;
+let pictureTracker: PictureBoxTracker | null = null;
 let currentDriverVideoSize: { width: number; height: number } | null = null;
 let currentScanController: AbortController | null = null;
 let currentUploadController: AbortController | null = null;
@@ -232,6 +234,8 @@ async function scanRoute(routeInput: string, updateHistory: boolean): Promise<vo
   cancelCurrentUploadWatch();
   videoPlayer?.destroy();
   videoPlayer = null;
+  pictureTracker?.disconnect();
+  pictureTracker = null;
   currentDriverVideoSize = null;
   poseNeutralBaseline = null;
   currentRoute = null;
@@ -267,6 +271,8 @@ async function loadRoute(routeInput: string, updateHistory: boolean): Promise<vo
   viewer.hidden = true;
   videoPlayer?.destroy();
   videoPlayer = null;
+  pictureTracker?.disconnect();
+  pictureTracker = null;
   currentDriverVideoSize = null;
   poseNeutralBaseline = null;
   input.value = routeInput.trim();
@@ -437,17 +443,19 @@ function renderViewer(route: DriverDebugRoute): void {
     <p id="model-provenance" class="model-provenance">${escapeHtml(formatModelProvenance(initialProvenance, true))}</p>
     <div id="video-shell" class="video-shell">
       <video id="driver-video" muted playsinline></video>
-      <div class="model-input-frame" aria-hidden="true"></div>
-      <div id="driver-box" class="face-box driver-box" role="button" tabindex="0" aria-label="Fade driver seat overlay" aria-pressed="false" title="Hover or tap to see the face" hidden><span>DRIVER SEAT</span></div>
-      <div id="other-box" class="face-box other-box" role="button" tabindex="0" aria-label="Fade other seat overlay" aria-pressed="false" title="Hover or tap to see the face" hidden><span>OTHER SEAT</span></div>
-      <div id="driver-pose" class="pose-gizmo" role="img" hidden>
-        <svg viewBox="0 0 100 100" aria-hidden="true">
-          <circle class="pose-widget-background" cx="50" cy="50" r="47"></circle>
-          <circle class="pose-uncertainty" cx="50" cy="50" r="42"></circle>
-          <path class="pose-yaw-arc"></path>
-          <path class="pose-pitch-arc"></path>
-          <polyline class="pose-face-outline"></polyline>
-        </svg>
+      <div id="picture-box" class="picture-box">
+        <div class="model-input-frame" aria-hidden="true"></div>
+        <div id="driver-box" class="face-box driver-box" role="button" tabindex="0" aria-label="Fade driver seat overlay" aria-pressed="false" title="Hover or tap to see the face" hidden><span>DRIVER SEAT</span></div>
+        <div id="other-box" class="face-box other-box" role="button" tabindex="0" aria-label="Fade other seat overlay" aria-pressed="false" title="Hover or tap to see the face" hidden><span>OTHER SEAT</span></div>
+        <div id="driver-pose" class="pose-gizmo" role="img" hidden>
+          <svg viewBox="0 0 100 100" aria-hidden="true">
+            <circle class="pose-widget-background" cx="50" cy="50" r="47"></circle>
+            <circle class="pose-uncertainty" cx="50" cy="50" r="42"></circle>
+            <path class="pose-yaw-arc"></path>
+            <path class="pose-pitch-arc"></path>
+            <polyline class="pose-face-outline"></polyline>
+          </svg>
+        </div>
       </div>
       <div id="video-placeholder" class="video-placeholder">
         <div class="video-load-panel">
@@ -604,6 +612,8 @@ async function loadRequestedVideo(route: DriverDebugRoute): Promise<void> {
   } catch (error) {
     (videoPlayer as DriverVideoPlayer | null)?.destroy();
     videoPlayer = null;
+    pictureTracker?.disconnect();
+    pictureTracker = null;
     if (currentRoute !== route) return;
     button.disabled = false;
     button.textContent = "Retry video";
@@ -634,6 +644,10 @@ async function loadVideo(route: DriverDebugRoute): Promise<void> {
     if (videoPlayer !== player || currentRoute !== route) return;
     currentDriverVideoSize = { width: video.videoWidth, height: video.videoHeight };
     byId<HTMLElement>("video-shell").style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
+    // Rebuild the tracker each load: the wrapper is recreated by renderViewer.
+    pictureTracker?.disconnect();
+    pictureTracker = new PictureBoxTracker(video, byId<HTMLElement>("picture-box"));
+    pictureTracker.observe();
     renderTelemetry(deepLinkedRouteTime(route));
     byId<HTMLButtonElement>("playback-toggle").disabled = false;
     byId<HTMLElement>("video-placeholder").hidden = true;
