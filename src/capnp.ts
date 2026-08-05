@@ -85,9 +85,7 @@ export function findDeviceType(bytes: Uint8Array): DeviceType | null {
       if (deviceType && deviceType !== "unknown") return deviceType;
     }
   } catch {
-    // Malformed or truncated framing — not every decompressed blob carries a
-    // well-formed init-data message, and a bad segment must not abort the
-    // route load that now relies on this for deviceType resolution.
+    // Malformed framing — a bad segment must not abort the route load.
   }
   return null;
 }

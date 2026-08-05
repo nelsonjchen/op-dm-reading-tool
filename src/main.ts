@@ -805,19 +805,11 @@ function renderPoseGizmo(driver: DriverModelData | null, monitoring: DriverMonit
   gizmo.hidden = false;
 }
 
-/**
- * Describe the device and the camera profile the face box actually used, for
- * the DM STATE card. `deviceType` is route metadata (now resolved from the log
- * bytes by loadDriverDebugRoute when the Connect API omits it); `profile` is
- * the tici/mici branch selected in renderFaceBox — deviceType OR the 1344x760
- * video-size fallback. When they disagree it flags why, which is what explains
- * a route whose boxes render through a different lens model than its metadata
- * implies.
- */
 function deviceProfileLabel(deviceType: string | undefined): string {
   const device = deviceType && deviceType.length > 0 ? deviceType.toLowerCase() : "unknown";
   const profile = device === "mici" || (currentDriverVideoSize?.width === 1344 && currentDriverVideoSize.height === 760) ? "mici" : "tici";
   if (device === profile) return `${device} / ${profile}`;
+  // deviceType said tici but the stream is 1344x760, so the box used mici.
   if (device !== "unknown" && profile === "mici") return `${device} / mici (by video size)`;
   return `${device} / ${profile}`;
 }

@@ -75,12 +75,7 @@ export async function loadDriverDebugRoute(
     const compressed = new Uint8Array(await response.arrayBuffer());
     const bytes = decompressLog(compressed, logUrl);
     decoded.push(decodeDriverDebugSegment(bytes, segment));
-    // The device reports its own type in the init data of every segment. Read
-    // it from the bytes so the tici/mici camera-profile selection does not
-    // depend on the Connect REST API populating routeInfo.deviceType — that
-    // field is absent for many routes, which left deviceType "unknown" and
-    // forced the mici profile to be reached only via the 1344x760 video-size
-    // fallback in renderFaceBox. The device's own report is the ground truth.
+    // The device self-reports its type in every segment's init data.
     if (!logDeviceType) logDeviceType = findDeviceType(bytes);
   }
 
@@ -99,10 +94,6 @@ export async function loadDriverDebugRoute(
   if (videoSources.length === 0) throw new Error("Driver video exists, but its frame index is missing for this clip.");
 
   onProgress({ message: "Driver Monitoring timeline ready", fraction: 0.55 });
-  // Fill deviceType from the log bytes when the Connect API did not populate
-  // it (common for mici routes). Prefer the API value when present so behavior
-  // is unchanged for routes where it already works; otherwise the device's own
-  // report from init data is the ground truth.
   const resolvedRouteInfo: RouteInfo | null = logDeviceType && (!routeInfo?.deviceType || routeInfo.deviceType.length === 0)
     ? { ...(routeInfo ?? { fullname: parsed.routeName }), deviceType: logDeviceType }
     : routeInfo;
