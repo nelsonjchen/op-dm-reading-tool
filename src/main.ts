@@ -9,7 +9,7 @@ import { scanDriverMonitoringRoute, type RouteScanUpdate } from "./scan";
 import type { ScanFinding } from "./scanLogic";
 import { buildMonitoringTimelineGradient, buildOnDeviceAlertMarkers, monitoringTimelineNote } from "./timeline";
 import { buildDriverVideoUploadRequest, queueDriverVideoUpload, watchDriverVideoUpload } from "./uploads";
-import { DriverVideoPlayer, detectHevcSupport } from "./video";
+import { DriverVideoPlayer, detectHevcSupport, type HevcSupport } from "./video";
 
 const PUBLIC_MICI_DEMO_ROUTE = "https://connect.comma.ai/5beb9b58bd12b691/0000010a--a51155e496/438/452";
 const PUBLIC_MICI_DEMO_TIME = 446;
@@ -137,9 +137,29 @@ const statusText = byId<HTMLElement>("status-text");
 const progressBar = byId<HTMLElement>("progress-bar");
 const viewer = byId<HTMLElement>("viewer");
 const support = detectHevcSupport();
-byId<HTMLElement>("codec-summary").textContent = support.supported
-  ? `Native HEVC is available (${support.codec}).`
-  : "Native HEVC/MSE is unavailable in this browser. Video will be disabled.";
+
+const MANAGED_SUPPORT_MESSAGE = "Driver video needs iOS 17.1+ (Managed Media Source). Telemetry is still available.";
+
+function describeHevcSupport(support: HevcSupport): string {
+  if (support.supported) {
+    return support.managed
+      ? `Native HEVC via Managed Media Source (${support.codec}).`
+      : `Native HEVC is available (${support.codec}).`;
+  }
+  return support.htmlVideo
+    ? MANAGED_SUPPORT_MESSAGE
+    : "Native HEVC/MSE is unavailable in this browser. Video will be disabled.";
+}
+
+// Placeholder copy in the video panel. Differs from the banner only on the
+// supported arm (where the panel shows a loading hint, not a codec summary);
+// the unsupported arms share wording with the banner.
+function describeVideoPlaceholder(support: HevcSupport): string {
+  if (support.supported) return "Preparing driver video…";
+  return support.htmlVideo ? MANAGED_SUPPORT_MESSAGE : "HEVC video unsupported — telemetry is still available.";
+}
+
+byId<HTMLElement>("codec-summary").textContent = describeHevcSupport(support);
 
 let currentRoute: DriverDebugRoute | null = null;
 let videoPlayer: DriverVideoPlayer | null = null;
@@ -286,7 +306,9 @@ async function loadRoute(routeInput: string, updateHistory: boolean): Promise<vo
     setProgress(
       support.supported
         ? "Telemetry ready · preparing driver video"
-        : "Telemetry ready · driver video is unavailable because native HEVC is unsupported",
+        : support.htmlVideo
+          ? "Telemetry ready · driver video needs iOS 17.1+ (Managed Media Source); telemetry is still available"
+          : "Telemetry ready · driver video is unavailable because native HEVC is unsupported",
       1,
       !support.supported,
     );
@@ -436,7 +458,7 @@ function renderViewer(route: DriverDebugRoute): void {
     </header>
     <p id="model-provenance" class="model-provenance">${escapeHtml(formatModelProvenance(initialProvenance, true))}</p>
     <div id="video-shell" class="video-shell">
-      <video id="driver-video" muted playsinline></video>
+      <video id="driver-video" muted playsinline${support.managed ? " managed" : ""}></video>
       <div class="model-input-frame" aria-hidden="true"></div>
       <div id="driver-box" class="face-box driver-box" role="button" tabindex="0" aria-label="Fade driver seat overlay" aria-pressed="false" title="Hover or tap to see the face" hidden><span>DRIVER SEAT</span></div>
       <div id="other-box" class="face-box other-box" role="button" tabindex="0" aria-label="Fade other seat overlay" aria-pressed="false" title="Hover or tap to see the face" hidden><span>OTHER SEAT</span></div>
@@ -451,7 +473,7 @@ function renderViewer(route: DriverDebugRoute): void {
       </div>
       <div id="video-placeholder" class="video-placeholder">
         <div class="video-load-panel">
-          <p id="video-placeholder-copy">${support.supported ? "Preparing driver video…" : "HEVC video unsupported — telemetry is still available."}</p>
+          <p id="video-placeholder-copy">${describeVideoPlaceholder(support)}</p>
           ${support.supported ? `<button id="load-video-button" type="button">Load driver video</button><small>Downloads the selected byte range and remuxes it in memory.</small>` : ""}
         </div>
       </div>
@@ -614,7 +636,7 @@ async function loadRequestedVideo(route: DriverDebugRoute): Promise<void> {
 
 async function loadVideo(route: DriverDebugRoute): Promise<void> {
   const video = byId<HTMLVideoElement>("driver-video");
-  const player = new DriverVideoPlayer(video);
+  const player = new DriverVideoPlayer(video, support.managed);
   videoPlayer = player;
   let playbackReady = false;
   await player.load(route.videoSources, route.startSeconds, route.endSeconds, (message, fraction) => {
