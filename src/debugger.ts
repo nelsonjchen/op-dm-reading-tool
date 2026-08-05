@@ -1,3 +1,4 @@
+import { findDeviceType } from "./capnp";
 import { decompressLog } from "./decompress";
 import { decodeDriverDebugSegment, type DriverDebugSegment, type DriverModelSample, type DriverMonitoringSample, type DriverVideoFrameIndex, type VehicleSample } from "./dm";
 import { fetchRouteFiles, fetchRouteInfo, logSourceLabel, orderedDcameraUrls, orderedLogUrls, parseRouteInput, segmentFromUrl, type RouteInfo } from "./routes";
@@ -59,6 +60,7 @@ export async function loadDriverDebugRoute(
   const missingVideoSegments = videoSegments.filter((segment) => !dcameraUrls.has(segment));
   if (missingVideoSegments.length > 0) throw new MissingDriverVideoError(parsed.routeName, missingVideoSegments);
   const decoded: DriverDebugSegment[] = [];
+  let logDeviceType: string | null = null;
 
   for (let index = 0; index < wantedSegments.length; index += 1) {
     const segment = wantedSegments[index];
@@ -73,6 +75,13 @@ export async function loadDriverDebugRoute(
     const compressed = new Uint8Array(await response.arrayBuffer());
     const bytes = decompressLog(compressed, logUrl);
     decoded.push(decodeDriverDebugSegment(bytes, segment));
+    // The device reports its own type in the init data of every segment. Read
+    // it from the bytes so the tici/mici camera-profile selection does not
+    // depend on the Connect REST API populating routeInfo.deviceType — that
+    // field is absent for many routes, which left deviceType "unknown" and
+    // forced the mici profile to be reached only via the 1344x760 video-size
+    // fallback in renderFaceBox. The device's own report is the ground truth.
+    if (!logDeviceType) logDeviceType = findDeviceType(bytes);
   }
 
   if (decoded.length === 0) throw new Error("No uploaded logs overlap this clip range.");
@@ -90,9 +99,16 @@ export async function loadDriverDebugRoute(
   if (videoSources.length === 0) throw new Error("Driver video exists, but its frame index is missing for this clip.");
 
   onProgress({ message: "Driver Monitoring timeline ready", fraction: 0.55 });
+  // Fill deviceType from the log bytes when the Connect API did not populate
+  // it (common for mici routes). Prefer the API value when present so behavior
+  // is unchanged for routes where it already works; otherwise the device's own
+  // report from init data is the ground truth.
+  const resolvedRouteInfo: RouteInfo | null = logDeviceType && (!routeInfo?.deviceType || routeInfo.deviceType.length === 0)
+    ? { ...(routeInfo ?? { fullname: parsed.routeName }), deviceType: logDeviceType }
+    : routeInfo;
   return {
     routeName: parsed.routeName,
-    routeInfo,
+    routeInfo: resolvedRouteInfo,
     startSeconds: parsed.startSeconds,
     endSeconds: parsed.endSeconds,
     logSource,

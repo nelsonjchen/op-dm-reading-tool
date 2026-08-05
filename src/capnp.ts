@@ -79,9 +79,15 @@ export function* readMessages(bytes: Uint8Array): Generator<SegmentData[]> {
 }
 
 export function findDeviceType(bytes: Uint8Array): DeviceType | null {
-  for (const segments of readMessages(bytes)) {
-    const deviceType = readDeviceTypeMessage(segments);
-    if (deviceType && deviceType !== "unknown") return deviceType;
+  try {
+    for (const segments of readMessages(bytes)) {
+      const deviceType = readDeviceTypeMessage(segments);
+      if (deviceType && deviceType !== "unknown") return deviceType;
+    }
+  } catch {
+    // Malformed or truncated framing — not every decompressed blob carries a
+    // well-formed init-data message, and a bad segment must not abort the
+    // route load that now relies on this for deviceType resolution.
   }
   return null;
 }
