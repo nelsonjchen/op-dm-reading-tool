@@ -232,7 +232,7 @@ test("loads the public Mici demo from the route form", async ({ page }) => {
   await expect(poseGizmo).toHaveAttribute("aria-label", /Raw model pose:/);
   await expect(page.locator("#pose-history-chart .raw-pitch-line")).toHaveCount(1);
   await expect(page.locator("#pose-history-chart .dm-pitch-line")).toHaveCount(0);
-  await expect(page.locator("#pose-history-summary")).toContainText("learned neutral");
+  await expect(page.locator("#pose-history-summary")).toContainText("learned pitch neutral");
   const faceBoxGeometry = await driverBox.evaluate((element) => {
     const box = element.getBoundingClientRect();
     const shell = element.parentElement!.getBoundingClientRect();
