@@ -89,6 +89,12 @@ label { display: block; margin-bottom: 8px; font-weight: 800; }
 .route-meta { justify-content: flex-end; flex-wrap: wrap; gap: 7px; }
 .video-shell { position: relative; aspect-ratio: 1928 / 1208; max-height: 72vh; margin: 0 auto; overflow: hidden; border-radius: 10px; background: #030405; }
 .video-shell video { width: 100%; height: 100%; display: block; object-fit: contain; }
+/* Overlay wrapper: sized in px by PictureBoxTracker to the rendered picture
+   (see src/picture-box.ts). pointer-events: none lets clicks fall through to
+   the video; interactive overlays (face boxes) re-enable their own. Not
+   aria-hidden — it carries no content itself, and hiding it would also hide
+   its labeled children (face boxes, pose gizmo). */
+.picture-box { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
 .video-placeholder { position: absolute; inset: 0; display: grid; place-items: center; color: #80909a; background: radial-gradient(circle, #182128, #050709); }
 .video-placeholder[hidden] { display: none; }
 .video-load-panel { display: grid; justify-items: center; gap: 10px; padding: 24px; text-align: center; }
