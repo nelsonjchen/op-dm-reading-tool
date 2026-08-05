@@ -16,6 +16,11 @@ export interface HevcSupport {
   htmlVideo: boolean;
   supported: boolean;
   codec: string;
+  // True when playback uses ManagedMediaSource (iOS 17.1+) rather than the
+  // standard MediaSource. When true, the <video> element must already carry
+  // the `managed` attribute and have remote playback disabled before its
+  // source is assigned (see attachMediaSource).
+  managed: boolean;
 }
 
 export interface PlannedVideoRange {
@@ -24,12 +29,37 @@ export interface PlannedVideoRange {
   frames: DriverVideoFrameIndex[];
 }
 
+// The constructor shape shared by MediaSource and ManagedMediaSource, so a
+// single variable can hold whichever the platform exposes.
+type MediaSourceConstructor = {
+  prototype: MediaSource;
+  new (): MediaSource;
+  isTypeSupported(type: string): boolean;
+};
+
+// Selects the MediaSource implementation to use. Prefers the standard
+// `MediaSource` (everywhere it exists — desktop browsers), and falls back to
+// `ManagedMediaSource`, the only variant iOS exposes (from 17.1 on). Returns
+// null on platforms with no MSE at all (e.g. iOS < 17.1).
+export function selectMediaSourceCtor(): { ctor: MediaSourceConstructor; managed: boolean } | null {
+  if (typeof MediaSource !== "undefined") return { ctor: MediaSource, managed: false };
+  if (typeof ManagedMediaSource !== "undefined") return { ctor: ManagedMediaSource, managed: true };
+  return null;
+}
+
 export function detectHevcSupport(): HevcSupport {
   const video = document.createElement("video");
   const mime = `video/mp4; codecs="${HEVC_CODEC}"`;
-  const mediaSource = typeof MediaSource !== "undefined" && MediaSource.isTypeSupported(mime);
+  const selection = selectMediaSourceCtor();
+  const mediaSource = selection !== null && selection.ctor.isTypeSupported(mime);
   const htmlVideo = video.canPlayType(mime) !== "";
-  return { mediaSource, htmlVideo, supported: mediaSource && htmlVideo, codec: HEVC_CODEC };
+  return {
+    mediaSource,
+    htmlVideo,
+    supported: mediaSource && htmlVideo,
+    codec: HEVC_CODEC,
+    managed: selection?.managed ?? false,
+  };
 }
 
 export function framesForClip(frames: DriverVideoFrameIndex[], startSeconds: number, endSeconds: number): DriverVideoFrameIndex[] {
@@ -70,7 +100,7 @@ export function planVideoRanges(frames: DriverVideoFrameIndex[], maxBytes = MAX_
 
 export class DriverVideoPlayer {
   private abortController: AbortController | null = null;
-  private mediaSource: MediaSource | null = null;
+  private mediaSource: MediaSource | ManagedMediaSource | null = null;
   private objectUrl: string | null = null;
   private pendingSeekTime: number | null = null;
   private resumeAfterSeek = false;
@@ -80,7 +110,8 @@ export class DriverVideoPlayer {
   private playbackGeneration = 0;
   playbackRouteStart = 0;
 
-  constructor(private readonly video: HTMLVideoElement) {}
+  // managed=true selects the ManagedMediaSource (iOS 17.1+) path; see HevcSupport.managed.
+  constructor(private readonly video: HTMLVideoElement, private readonly managed: boolean) {}
 
   get isPlaybackRequested(): boolean {
     return this.playbackRequested;
@@ -160,11 +191,10 @@ export class DriverVideoPlayer {
       return { source, ranges, overfetchFinalRange: !lookahead };
     });
     const signal = this.abortController.signal;
-    const mediaSource = new MediaSource();
+    const mediaSource = this.managed ? new ManagedMediaSource() : new MediaSource();
     this.mediaSource = mediaSource;
     this.objectUrl = URL.createObjectURL(mediaSource);
-    this.video.src = this.objectUrl;
-    this.video.load();
+    attachMediaSource(this.video, this.objectUrl, this.managed);
     await waitForMediaSourceOpen(mediaSource, signal);
     mediaSource.duration = Math.max(0.1, endSeconds - this.playbackRouteStart);
     const sourceBuffer = mediaSource.addSourceBuffer(`video/mp4; codecs="${HEVC_CODEC}"`);
@@ -293,8 +323,9 @@ export class DriverVideoPlayer {
     this.abortController?.abort();
     this.abortController = null;
     this.pause();
-    this.video.removeAttribute("src");
-    this.video.load();
+    // Clear the attach: src attribute, <source> children, and the managed-path
+    // remote-playback gate. See detachMediaSource / attachMediaSource.
+    detachMediaSource(this.video, this.managed);
     if (this.objectUrl) URL.revokeObjectURL(this.objectUrl);
     this.objectUrl = null;
     this.mediaSource = null;
@@ -552,7 +583,50 @@ function frameKey(frame: DriverVideoFrameIndex): string {
   return `${frame.segment}:${frame.presentationIndex}`;
 }
 
-function waitForMediaSourceOpen(mediaSource: MediaSource, signal: AbortSignal): Promise<void> {
+// Remove any <source> children from a <video> element. Used both to clear
+// stale children before attaching a fresh source and to tear down an
+// attachment, so the removal logic has a single home.
+function clearSourceChildren(video: HTMLVideoElement): void {
+  for (const existing of video.querySelectorAll("source")) existing.remove();
+}
+
+// Attach a (Managed)MediaSource object URL to a <video> element.
+//
+// Standard MediaSource: set `video.src` directly (works everywhere).
+//
+// ManagedMediaSource (iOS 17.1+): Safari refuses to fire `sourceopen` — and
+// therefore never opens the source — unless remote playback is explicitly
+// disabled on the element AND the URL is provided via a `<source>` child
+// rather than the `src` attribute. This is documented by MDN and is exactly
+// what hls.js does on its managed path. Without it the source stays `closed`
+// forever and no video bytes are ever fetched.
+function attachMediaSource(video: HTMLVideoElement, objectUrl: string, managed: boolean): void {
+  if (!managed) {
+    video.src = objectUrl;
+    video.load();
+    return;
+  }
+  video.disableRemotePlayback = true;
+  video.removeAttribute("src");
+  clearSourceChildren(video);
+  const source = document.createElement("source");
+  source.type = "video/mp4";
+  source.src = objectUrl;
+  video.appendChild(source);
+  video.load();
+}
+
+// Tear down a (Managed)MediaSource attachment so the element is clean for a
+// future attach. Pairs with attachMediaSource: drops the `src` attribute, any
+// <source> children, and (on the managed path) the Safari remote-playback gate.
+function detachMediaSource(video: HTMLVideoElement, managed: boolean): void {
+  video.removeAttribute("src");
+  clearSourceChildren(video);
+  if (managed) video.disableRemotePlayback = false;
+  video.load();
+}
+
+function waitForMediaSourceOpen(mediaSource: MediaSource | ManagedMediaSource, signal: AbortSignal): Promise<void> {
   if (mediaSource.readyState === "open") return Promise.resolve();
   return new Promise((resolve, reject) => {
     const cleanup = () => {
