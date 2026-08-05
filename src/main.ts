@@ -732,6 +732,7 @@ function renderTelemetry(routeSeconds: number): void {
     monitoring.alertLevel !== "none" || monitoring.lockout ? badge(monitoring.lockout ? "too distracted" : `alert ${monitoring.alertLevel}`, "danger") : "",
   ].join("");
   byId<HTMLElement>("dm-values").innerHTML = rows([
+    ["device / profile", deviceProfileLabel(route.routeInfo?.deviceType)],
     ["side / schema", `${side} / ${monitoring.schema}`],
     ["distracted type", monitoring.distractedTypes.join(", ") || "none"],
     ["step / speed", `${monitoring.awarenessStep.toFixed(4)} / ${vehicle ? `${vehicle.vEgo.toFixed(1)} m/s` : "--"}`],
@@ -802,6 +803,23 @@ function renderPoseGizmo(driver: DriverModelData | null, monitoring: DriverMonit
   const source = useDm ? "DM" : "RAW";
   gizmo.setAttribute("aria-label", `${source === "DM" ? "Driver monitoring" : "Raw model"} pose: pitch ${formatPitchDegrees(pitch)}, yaw ${formatSignedDegrees(yaw)}, roll ${formatSignedDegrees(roll)}`);
   gizmo.hidden = false;
+}
+
+/**
+ * Describe the device and the camera profile the face box actually used, for
+ * the DM STATE card. `deviceType` is route metadata (now resolved from the log
+ * bytes by loadDriverDebugRoute when the Connect API omits it); `profile` is
+ * the tici/mici branch selected in renderFaceBox — deviceType OR the 1344x760
+ * video-size fallback. When they disagree it flags why, which is what explains
+ * a route whose boxes render through a different lens model than its metadata
+ * implies.
+ */
+function deviceProfileLabel(deviceType: string | undefined): string {
+  const device = deviceType && deviceType.length > 0 ? deviceType.toLowerCase() : "unknown";
+  const profile = device === "mici" || (currentDriverVideoSize?.width === 1344 && currentDriverVideoSize.height === 760) ? "mici" : "tici";
+  if (device === profile) return `${device} / ${profile}`;
+  if (device !== "unknown" && profile === "mici") return `${device} / mici (by video size)`;
+  return `${device} / ${profile}`;
 }
 
 function renderFaceBox(id: string, driver: DriverModelData | null, deviceType: string): void {
