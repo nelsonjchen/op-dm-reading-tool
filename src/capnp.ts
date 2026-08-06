@@ -79,9 +79,13 @@ export function* readMessages(bytes: Uint8Array): Generator<SegmentData[]> {
 }
 
 export function findDeviceType(bytes: Uint8Array): DeviceType | null {
-  for (const segments of readMessages(bytes)) {
-    const deviceType = readDeviceTypeMessage(segments);
-    if (deviceType && deviceType !== "unknown") return deviceType;
+  try {
+    for (const segments of readMessages(bytes)) {
+      const deviceType = readDeviceTypeMessage(segments);
+      if (deviceType && deviceType !== "unknown") return deviceType;
+    }
+  } catch {
+    // Malformed framing — a bad segment must not abort the route load.
   }
   return null;
 }

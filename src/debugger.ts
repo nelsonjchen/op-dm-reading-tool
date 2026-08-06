@@ -1,3 +1,4 @@
+import { findDeviceType } from "./capnp";
 import { decompressLog } from "./decompress";
 import { decodeDriverDebugSegment, type DriverDebugSegment, type DriverModelSample, type DriverMonitoringSample, type DriverVideoFrameIndex, type VehicleSample } from "./dm";
 import { fetchRouteFiles, fetchRouteInfo, logSourceLabel, orderedDcameraUrls, orderedLogUrls, parseRouteInput, segmentFromUrl, type RouteInfo } from "./routes";
@@ -59,6 +60,7 @@ export async function loadDriverDebugRoute(
   const missingVideoSegments = videoSegments.filter((segment) => !dcameraUrls.has(segment));
   if (missingVideoSegments.length > 0) throw new MissingDriverVideoError(parsed.routeName, missingVideoSegments);
   const decoded: DriverDebugSegment[] = [];
+  let logDeviceType: string | null = null;
 
   for (let index = 0; index < wantedSegments.length; index += 1) {
     const segment = wantedSegments[index];
@@ -73,6 +75,8 @@ export async function loadDriverDebugRoute(
     const compressed = new Uint8Array(await response.arrayBuffer());
     const bytes = decompressLog(compressed, logUrl);
     decoded.push(decodeDriverDebugSegment(bytes, segment));
+    // The device self-reports its type in every segment's init data.
+    if (!logDeviceType) logDeviceType = findDeviceType(bytes);
   }
 
   if (decoded.length === 0) throw new Error("No uploaded logs overlap this clip range.");
@@ -90,9 +94,12 @@ export async function loadDriverDebugRoute(
   if (videoSources.length === 0) throw new Error("Driver video exists, but its frame index is missing for this clip.");
 
   onProgress({ message: "Driver Monitoring timeline ready", fraction: 0.55 });
+  const resolvedRouteInfo: RouteInfo | null = logDeviceType && (!routeInfo?.deviceType || routeInfo.deviceType.length === 0)
+    ? { ...(routeInfo ?? { fullname: parsed.routeName }), deviceType: logDeviceType }
+    : routeInfo;
   return {
     routeName: parsed.routeName,
-    routeInfo,
+    routeInfo: resolvedRouteInfo,
     startSeconds: parsed.startSeconds,
     endSeconds: parsed.endSeconds,
     logSource,

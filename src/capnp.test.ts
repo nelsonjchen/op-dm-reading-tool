@@ -6,6 +6,31 @@ describe("Cap'n Proto log parsing", () => {
     expect(findDeviceType(minimalInitDataMessage(7))).toBe("mici");
     expect(findDeviceType(minimalInitDataMessage(4))).toBe("tici");
   });
+
+  // findDeviceType is now load-bearing for camera-profile selection: the log
+  // bytes are the source of truth for deviceType when the Connect API does not
+  // populate it (see debugger.ts). Cover the full device map so a dropped code
+  // can't silently flip a route's tici/mici profile.
+  it("decodes every known device code", () => {
+    const cases: Array<[number, string]> = [
+      [1, "neo"],
+      [2, "chffrAndroid"],
+      [3, "chffrIos"],
+      [4, "tici"],
+      [5, "pc"],
+      [6, "tizi"],
+      [7, "mici"],
+    ];
+    for (const [code, expected] of cases) {
+      expect(findDeviceType(minimalInitDataMessage(code))).toBe(expected);
+    }
+  });
+
+  it("returns null for the unknown code and for bytes with no init data", () => {
+    expect(findDeviceType(minimalInitDataMessage(0))).toBeNull();
+    expect(findDeviceType(new Uint8Array(0))).toBeNull();
+    expect(findDeviceType(new Uint8Array(64))).toBeNull();
+  });
 });
 
 function minimalInitDataMessage(deviceType: number): Uint8Array {
