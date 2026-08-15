@@ -204,22 +204,42 @@ dd { margin: 0; text-align: right; font-family: "SFMono-Regular", Consolas, mono
 .timeline-selection-guide { max-width: 980px; margin: 18px 0 0; padding: 16px; border: 1px solid #30404a; border-radius: 10px; background: #11171c; }
 .timeline-guide-label { display: flex; justify-content: space-between; gap: 18px; color: #8797a2; font-size: .8rem; }
 .timeline-guide-label strong { color: #dce5ea; }
-.timeline-guide-track { position: relative; height: 46px; margin-top: 14px; overflow: hidden; border: 1px solid #43515b; border-radius: 5px; background: repeating-linear-gradient(90deg, #222c33 0 7.5%, #27333a 7.5% 8%); }
-.timeline-guide-track::after { content: ""; position: absolute; right: 0; bottom: 0; left: 0; height: 5px; background: #3aa86b; }
-.timeline-event { position: absolute; top: 0; bottom: 5px; background: #b36f37; opacity: .85; }
-.event-one { left: 25%; width: 9%; }
-.event-two { left: 49%; width: 13%; }
-.timeline-bookmark { position: absolute; z-index: 2; top: 5px; bottom: 8px; left: 44%; width: 4px; border-radius: 2px; background: #f1d34f; box-shadow: 0 0 0 2px rgba(0, 0, 0, .35); }
-.timeline-selection { position: absolute; z-index: 3; top: 3px; bottom: 8px; left: 39%; width: 29%; border: 2px solid #58b7ff; background: rgba(88, 183, 255, .18); }
-.timeline-selection i { position: absolute; top: -4px; bottom: -4px; width: 5px; border-radius: 3px; background: #9ed9ff; }
-.selection-start { left: -3px; }
-.selection-end { right: -3px; }
-.timeline-guide-actions { display: grid; grid-template-columns: 1fr 1fr 1.25fr; gap: 12px; margin-top: 10px; color: #91a1ab; font-size: .8rem; }
+.timeline-guide-track { position: relative; height: 76px; margin: 14px 0 48px; overflow: visible; border: 1px solid #43515b; border-radius: 5px; background: #25333d; box-shadow: 0 0 0 1px rgba(0, 0, 0, .18); }
+.timeline-guide-status { position: relative; height: 12px; overflow: hidden; background: #175886; }
+.timeline-status-engaged { position: absolute; top: 0; right: 0; bottom: 0; left: 31%; background: #178645; }
+.timeline-status-marker { position: absolute; z-index: 2; top: 0; bottom: 0; width: 2px; background: rgba(216, 221, 223, .48); }
+.status-marker-one { left: 32%; }
+.status-marker-two { left: 68%; }
+.timeline-status-bookmark { position: absolute; z-index: 3; top: 0; bottom: 0; left: 84%; width: 5px; background: #e3d756; box-shadow: 0 0 0 1px rgba(0, 0, 0, .3); }
+.timeline-status-gradient { position: absolute; z-index: 4; inset: 0; pointer-events: none; background: linear-gradient(rgba(0, 0, 0, 0) 4%, rgba(255, 255, 255, .025) 10%, rgba(0, 0, 0, .1) 25%, rgba(0, 0, 0, .4)); }
+.timeline-guide-thumbnails { display: flex; height: 20px; overflow: hidden; user-select: none; }
+.timeline-thumbnail { display: block; flex: 1 1 0; min-width: 0; height: 20px; background-repeat: repeat-x; background-size: auto 24px; background-position: center; filter: saturate(.82) brightness(.82); }
+.timeline-thumbnail-one { background-image: url("https://chffrprivate.blob.core.windows.net/chffrprivate3/v2/5beb9b58bd12b691/60a8a2e4054c707786282bb7324800ba_0000010a--a51155e496/6/sprite.jpg"); }
+.timeline-thumbnail-two { background-image: url("https://chffrprivate.blob.core.windows.net/chffrprivate3/v2/5beb9b58bd12b691/60a8a2e4054c707786282bb7324800ba_0000010a--a51155e496/7/sprite.jpg"); }
+.timeline-thumbnail-three { background-image: url("https://chffrprivate.blob.core.windows.net/chffrprivate3/v2/5beb9b58bd12b691/60a8a2e4054c707786282bb7324800ba_0000010a--a51155e496/8/sprite.jpg"); }
+.timeline-guide-ruler { position: relative; height: 44px; background: #25333d; touch-action: none; }
+.timeline-ruler-remaining { position: absolute; z-index: 1; top: 0; right: 0; bottom: 0; left: 7%; border-left: 1px solid #d8dddf; background: rgba(29, 34, 37, .9); opacity: .45; }
+.timeline-selection { position: absolute; z-index: 3; top: 0; bottom: 0; left: 39%; width: 29%; background: rgba(255, 255, 255, .1); border-left: 1px solid rgba(255, 255, 255, .3); border-right: 1px solid rgba(255, 255, 255, .3); }
+.timeline-selection i { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(216, 221, 223, .76); }
+.selection-start { left: -1px; }
+.selection-end { right: -1px; }
+.timeline-guide-cursor { position: absolute; z-index: 7; top: 46px; left: calc(67.5% - 4px); width: 22px; height: 22px; background: url("https://api.iconify.design/mdi:cursor-default-click-outline.svg?color=%23f8f9f9") center / contain no-repeat; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .85)); pointer-events: none; transform: rotate(-8deg); animation: timeline-guide-cursor-drag 3.8s ease-in-out infinite; }
+.timeline-guide-hover { position: absolute; z-index: 6; top: 84px; left: 53%; padding: 5px 12px; border: 1px solid rgba(255, 255, 255, .12); border-radius: 999px; background: #272c2f; color: #f8f9f9; font-size: .76rem; white-space: nowrap; box-shadow: 0 2px 4px rgba(0, 0, 0, .25); transform: translateX(-50%); }
+.timeline-guide-actions { display: grid; grid-template-columns: 1fr 1fr 1.25fr; gap: 12px; margin-top: 0; color: #91a1ab; font-size: .8rem; }
 .timeline-guide-actions span { position: relative; }
 .timeline-guide-actions strong { color: #8fd0fb; }
 .drag-action { text-align: center; }
 .timeline-selection-guide figcaption { margin-top: 13px; color: #a9b6be; font-size: .86rem; }
 .timeline-selection-guide code { color: #8fd0fb; }
+@keyframes timeline-guide-cursor-drag {
+  0%, 12% { left: calc(39% - 4px); transform: rotate(-8deg) scale(.92); }
+  18% { left: calc(39% - 4px); transform: rotate(-8deg) scale(.8); }
+  62%, 76% { left: calc(67.5% - 4px); transform: rotate(-8deg) scale(.92); }
+  82%, 100% { left: calc(67.5% - 4px); transform: rotate(-8deg) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .timeline-guide-cursor { left: calc(67.5% - 4px); animation: none; }
+}
 .usage-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 18px 0 0; padding: 0; counter-reset: usage-step; list-style: none; }
 .usage-steps li { min-width: 0; padding: 16px; border: 1px solid #28343c; border-radius: 10px; background: #11171c; counter-increment: usage-step; }
 .usage-steps li::before { content: counter(usage-step); display: grid; place-items: center; width: 28px; height: 28px; margin-bottom: 12px; border-radius: 50%; background: #153a28; color: #6ce5a2; font-weight: 900; }

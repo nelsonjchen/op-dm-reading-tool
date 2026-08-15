@@ -59,10 +59,24 @@ app.innerHTML = `
       <figure class="timeline-selection-guide">
         <div class="timeline-guide-label"><strong>comma Connect timeline</strong><span>It is draggable—even though it does not look like a range control.</span></div>
         <div class="timeline-guide-track" role="img" aria-label="Drag from before an event to after it on the comma Connect timeline">
-          <span class="timeline-event event-one"></span>
-          <span class="timeline-event event-two"></span>
-          <span class="timeline-bookmark" title="Bookmark"></span>
-          <span class="timeline-selection"><i class="selection-start"></i><i class="selection-end"></i></span>
+          <div class="timeline-guide-status" aria-hidden="true">
+            <span class="timeline-status-engaged"></span>
+            <span class="timeline-status-marker status-marker-one"></span>
+            <span class="timeline-status-marker status-marker-two"></span>
+            <span class="timeline-status-bookmark" title="Bookmark"></span>
+            <span class="timeline-status-gradient"></span>
+          </div>
+          <div class="timeline-guide-thumbnails" aria-hidden="true">
+            <span class="timeline-thumbnail timeline-thumbnail-one"></span>
+            <span class="timeline-thumbnail timeline-thumbnail-two"></span>
+            <span class="timeline-thumbnail timeline-thumbnail-three"></span>
+          </div>
+          <div class="timeline-guide-ruler" aria-hidden="true">
+            <span class="timeline-ruler-remaining"></span>
+            <span class="timeline-selection"><i class="selection-start"></i><i class="selection-end"></i></span>
+          </div>
+          <span class="timeline-guide-cursor" aria-hidden="true"></span>
+          <span class="timeline-guide-hover" aria-hidden="true">29, 18:49:30</span>
         </div>
         <div class="timeline-guide-actions"><span><strong>1. Press</strong> just before the event</span><span class="drag-action"><strong>2. Drag →</strong> across a short window</span><span><strong>3. Release</strong> to zoom and update the URL</span></div>
         <figcaption>Then copy the address-bar URL. If the selection worked, the link ends in two numbers such as <code>/247/276</code>. Drag across the zoomed timeline again to make the clip tighter.</figcaption>
