@@ -195,8 +195,9 @@ export class DriverVideoPlayer {
     endSeconds: number,
     onProgress: (message: string, fraction: number) => void,
     onBackgroundError: (error: unknown) => void = () => {},
+    loadContextOverride: VideoLoadContext | null = null,
   ): Promise<void> {
-    const loadContext: VideoLoadContext = { segmentSources, startSeconds, endSeconds, onProgress, onBackgroundError };
+    const loadContext = loadContextOverride ?? { segmentSources, startSeconds, endSeconds, onProgress, onBackgroundError };
     const requestedRouteSeconds = this.restartRequestedRouteSeconds;
     this.restartRequestedRouteSeconds = null;
     this.destroy();
@@ -378,6 +379,7 @@ export class DriverVideoPlayer {
       loadContext.endSeconds,
       loadContext.onProgress,
       loadContext.onBackgroundError,
+      loadContext,
     ).then(() => {
       if (!this.restartInFlight || this.loadContext !== loadContext) return;
       this.restartInFlight = false;
