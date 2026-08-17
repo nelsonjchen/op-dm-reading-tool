@@ -61,6 +61,10 @@ label { display: block; margin-bottom: 8px; font-weight: 800; }
 .viewer { margin-top: 16px; padding: 18px; }
 .viewer-header { margin-bottom: 14px; }
 .model-provenance { margin: -8px 0 14px; color: #7f919c; font-size: .76rem; }
+.route-build-info { display: flex; flex-wrap: wrap; gap: 5px 12px; margin: -8px 0 14px; color: #8797a2; font-size: .76rem; }
+.route-build-info span + span::before { content: "·"; margin-right: 12px; color: #53616a; }
+.route-build-info code { color: #c3ced4; }
+.route-build-info a { overflow-wrap: anywhere; }
 .scan-header { display: flex; align-items: baseline; justify-content: space-between; gap: 18px; padding-bottom: 14px; border-bottom: 1px solid #28343c; }
 .scan-header p, .scan-count { margin: 5px 0 0; color: #82939e; }
 .scan-count { flex: none; font: .8rem "SFMono-Regular", Consolas, monospace; }
@@ -290,6 +294,9 @@ dd { margin: 0; text-align: right; font-family: "SFMono-Regular", Consolas, mono
 .policy-note .policy-sources { color: #71838f; font-size: .78rem; }
 .site-footer { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 32px; padding: 20px 2px 0; border-top: 1px solid #27323a; color: #71838f; font-size: .82rem; }
 .site-footer a { font-weight: 800; }
+.site-build-info { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px 12px; max-width: 100%; color: #8797a2; font-size: .75rem; text-align: right; }
+.site-build-info span { overflow-wrap: anywhere; }
+.site-build-info code { color: #c3ced4; }
 
 @media (max-width: 900px) {
   .debug-grid, .info-notes, .usage-steps { grid-template-columns: 1fr 1fr; }
@@ -329,4 +336,5 @@ dd { margin: 0; text-align: right; font-family: "SFMono-Regular", Consolas, mono
   .timeline-guide-actions { grid-template-columns: 1fr; gap: 4px; }
   .drag-action { text-align: left; }
   .site-footer { align-items: flex-start; flex-direction: column; gap: 7px; }
+  .site-build-info { justify-content: flex-start; text-align: left; }
 }

@@ -6,6 +6,7 @@ import { formatModelProvenance, modelProvenanceDetails, resolveDmModelProvenance
 import { collectPoseHistory, formatAbsoluteDegrees, formatPitchDegrees, formatSignedDegrees, poseVectorGeometry, poseWidgetLayout, poseYawForVideo, radiansToDegrees, ticiFacePolyline, type PoseOverlayMode } from "./pose";
 import { PictureBoxTracker } from "./picture-box";
 import { buildAuthCallbackCleanUrl, buildRouteShareUrl, buildRouteTimeUrl, parseRouteInput, routeInputFromUrl, routeTimeFromUrl } from "./routeInput";
+import { recordedBuildInfo } from "./routeBuild";
 import { scanDriverMonitoringRoute, type RouteScanUpdate } from "./scan";
 import type { ScanFinding } from "./scanLogic";
 import { buildMonitoringTimelineGradient, buildOnDeviceAlertMarkers, monitoringTimelineNote } from "./timeline";
@@ -14,6 +15,7 @@ import { DriverVideoPlayer, detectHevcSupport, type HevcSupport } from "./video"
 
 const PUBLIC_MICI_DEMO_ROUTE = "https://connect.comma.ai/5beb9b58bd12b691/0000010a--a51155e496/438/452";
 const PUBLIC_MICI_DEMO_TIME = 446;
+const buildInfo = __BUILD_INFO__;
 
 const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) throw new Error("Missing app element");
@@ -140,6 +142,11 @@ app.innerHTML = `
     <footer class="site-footer">
       <span>Open-source under the MIT License.</span>
       <a href="https://github.com/nelsonjchen/op-dm-reading-tool" target="_blank" rel="noreferrer">View this tool on GitHub ↗</a>
+      <div class="site-build-info" aria-label="Build metadata">
+        <span>remote <a href="${escapeHtml(buildInfo.remoteUrl)}" target="_blank" rel="noreferrer">${escapeHtml(buildInfo.remoteUrl || "unknown")}</a></span>
+        <span>branch <code>${escapeHtml(buildInfo.branch)}</code></span>
+        <span>commit <code title="${escapeHtml(buildInfo.commit)}">${escapeHtml(buildInfo.commit.slice(0, 12))}</code></span>
+      </div>
     </footer>
   </section>`;
 
@@ -479,6 +486,7 @@ function renderViewer(route: DriverDebugRoute): void {
       <div class="route-meta"><span>${formatTime(route.startSeconds)}–${formatTime(route.endSeconds)}</span><span>${route.logSource} · ${formatHz(route.telemetryHz)}</span>${route.highResolutionRequested && route.logSource === "qlogs" ? "<span>rlog unavailable</span>" : ""}</div>
     </header>
     <p id="model-provenance" class="model-provenance">${escapeHtml(formatModelProvenance(initialProvenance, true))}</p>
+    ${renderRecordedBuildInfo(route.routeInfo)}
     <div id="video-shell" class="video-shell">
       <video id="driver-video" muted playsinline${support.managed ? " managed" : ""}></video>
       <div id="picture-box" class="picture-box">
@@ -1011,6 +1019,16 @@ function rows(values: Array<[string, string]>): string {
 
 function formatHz(value: number): string {
   return value > 0 ? `${value.toFixed(value >= 10 ? 0 : 1)} Hz` : "unknown rate";
+}
+
+function renderRecordedBuildInfo(routeInfo: DriverDebugRoute["routeInfo"]): string {
+  const build = recordedBuildInfo(routeInfo);
+  const values = [
+    build.remoteUrl ? `<span>remote <a href="${escapeHtml(build.remoteUrl)}" target="_blank" rel="noreferrer">${escapeHtml(build.remoteUrl)}</a></span>` : "",
+    build.branch ? `<span>branch <code>${escapeHtml(build.branch)}</code></span>` : "",
+    build.commit ? `<span>commit <code title="${escapeHtml(build.commit)}">${escapeHtml(build.commit.slice(0, 12))}</code></span>` : "",
+  ].filter(Boolean);
+  return values.length > 0 ? `<p class="route-build-info" aria-label="Recorded openpilot build metadata">${values.join("")}</p>` : "";
 }
 
 function badge(text: string, kind: string): string { return `<span class="state-badge ${kind}">${escapeHtml(text)}</span>`; }

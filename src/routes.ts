@@ -21,6 +21,8 @@ export interface RouteInfo {
   maxqlog?: number;
   platform?: string;
   version?: string;
+  git_remote?: string;
+  gitRemote?: string;
   git_commit?: string;
   gitCommit?: string;
   git_branch?: string;
