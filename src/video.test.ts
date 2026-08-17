@@ -212,6 +212,23 @@ describe("DriverVideoPlayer seeking", () => {
     expect(video.currentTime).toBe(10);
     expect(play).toHaveBeenCalledOnce();
   });
+
+  it("moves the media element immediately for an unbuffered seek", () => {
+    const dispatchEvent = vi.fn();
+    const video = {
+      buffered: { length: 1, start: () => 0, end: () => 20 },
+      currentTime: 0,
+      error: null,
+      paused: true,
+      dispatchEvent,
+    } as unknown as HTMLVideoElement;
+    const player = new DriverVideoPlayer(video, false);
+
+    player.seek(30);
+
+    expect(video.currentTime).toBe(30);
+    expect(dispatchEvent).toHaveBeenCalledWith(expect.any(Event));
+  });
 });
 
 function frame(encodeIndex: number, byteOffset: number, keyframe = false, byteLength = 100): DriverVideoFrameIndex {

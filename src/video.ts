@@ -29,6 +29,14 @@ export interface PlannedVideoRange {
   frames: DriverVideoFrameIndex[];
 }
 
+interface VideoLoadContext {
+  segmentSources: Array<{ url: string; frames: DriverVideoFrameIndex[] }>;
+  startSeconds: number;
+  endSeconds: number;
+  onProgress: (message: string, fraction: number) => void;
+  onBackgroundError: (error: unknown) => void;
+}
+
 // The constructor shape shared by MediaSource and ManagedMediaSource, so a
 // single variable can hold whichever the platform exposes.
 type MediaSourceConstructor = {
@@ -108,6 +116,9 @@ export class DriverVideoPlayer {
   private playAttempt: Promise<void> | null = null;
   private scheduledPlay: number | null = null;
   private playbackGeneration = 0;
+  private loadContext: VideoLoadContext | null = null;
+  private restartInFlight = false;
+  private restartRequestedRouteSeconds: number | null = null;
   playbackRouteStart = 0;
 
   // managed=true selects the ManagedMediaSource (iOS 17.1+) path; see HevcSupport.managed.
@@ -154,9 +165,27 @@ export class DriverVideoPlayer {
       return;
     }
     const shouldResume = this.playbackRequested || !this.video.paused;
+    const bufferedStart = this.video.buffered.length > 0 ? this.video.buffered.start(0) : null;
+    if (bufferedStart !== null && target < bufferedStart && this.loadContext) {
+      if (this.restartInFlight) {
+        this.restartRequestedRouteSeconds = routeSeconds;
+        this.resumeAfterSeek = shouldResume;
+        this.pendingSeekTime = target;
+        this.video.currentTime = target;
+        this.video.dispatchEvent(new Event(VIDEO_DEMAND_EVENT));
+      } else {
+        this.restartAt(routeSeconds, shouldResume);
+      }
+      return;
+    }
     this.suspendPlayback();
     this.resumeAfterSeek = shouldResume;
     this.pendingSeekTime = target;
+    // Move the media element to the requested time before fetching the missing
+    // fragment. Leaving currentTime at the old position makes MSE retain the
+    // old buffered range while pumpFragments appends toward a distant seek,
+    // eventually hitting SourceBuffer's quota before applyPendingSeek runs.
+    this.video.currentTime = target;
     this.video.dispatchEvent(new Event(VIDEO_DEMAND_EVENT));
   }
 
@@ -167,7 +196,11 @@ export class DriverVideoPlayer {
     onProgress: (message: string, fraction: number) => void,
     onBackgroundError: (error: unknown) => void = () => {},
   ): Promise<void> {
+    const loadContext: VideoLoadContext = { segmentSources, startSeconds, endSeconds, onProgress, onBackgroundError };
+    const requestedRouteSeconds = this.restartRequestedRouteSeconds;
+    this.restartRequestedRouteSeconds = null;
     this.destroy();
+    this.loadContext = loadContext;
     this.abortController = new AbortController();
     const selected = segmentSources.map((source) => ({
       ...source,
@@ -175,7 +208,7 @@ export class DriverVideoPlayer {
     })).filter((source) => source.frames.length > 0);
     if (selected.length === 0) throw new Error("No indexed driver-camera frames overlap this clip.");
     this.playbackRouteStart = Math.min(...selected.flatMap((source) => source.frames.map((frame) => frame.routeSeconds)));
-    this.pendingSeekTime = Math.max(0, startSeconds - this.playbackRouteStart);
+    this.pendingSeekTime = Math.max(0, (requestedRouteSeconds ?? startSeconds) - this.playbackRouteStart);
     const sourcePlans = selected.map((source) => {
       const allSourceFrames = segmentSources.find((candidate) => candidate.url === source.url)?.frames ?? source.frames;
       const firstSelected = source.frames[0];
@@ -331,6 +364,33 @@ export class DriverVideoPlayer {
     this.mediaSource = null;
     this.pendingSeekTime = null;
     this.resumeAfterSeek = false;
+    this.loadContext = null;
+  }
+
+  private restartAt(routeSeconds: number, shouldResume: boolean): void {
+    const loadContext = this.loadContext;
+    if (!loadContext) return;
+    this.restartInFlight = true;
+    this.restartRequestedRouteSeconds = routeSeconds;
+    void this.load(
+      loadContext.segmentSources,
+      loadContext.startSeconds,
+      loadContext.endSeconds,
+      loadContext.onProgress,
+      loadContext.onBackgroundError,
+    ).then(() => {
+      if (!this.restartInFlight || this.loadContext !== loadContext) return;
+      this.restartInFlight = false;
+      const requestedRouteSeconds = this.restartRequestedRouteSeconds ?? routeSeconds;
+      this.restartRequestedRouteSeconds = null;
+      this.playbackRequested = shouldResume;
+      this.seek(requestedRouteSeconds);
+    }).catch((error) => {
+      if (this.loadContext !== loadContext) return;
+      this.restartInFlight = false;
+      this.restartRequestedRouteSeconds = null;
+      if (!(error instanceof DOMException && error.name === "AbortError")) loadContext.onBackgroundError(error);
+    });
   }
 
   private applyPendingSeek(): void {
