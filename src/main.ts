@@ -141,6 +141,7 @@ app.innerHTML = `
     </section>
     <footer class="site-footer">
       <span>Open-source under the MIT License.</span>
+      <span>Related project: <a href="https://opcal.mindflakes.com/" target="_blank" rel="noreferrer">openpilot Calibration Reading Tool ↗</a></span>
       <a href="https://github.com/nelsonjchen/op-dm-reading-tool" target="_blank" rel="noreferrer">View this tool on GitHub ↗</a>
       <div class="site-build-info" aria-label="Build metadata">
         <span>remote <a href="${escapeHtml(buildInfo.remoteUrl)}" target="_blank" rel="noreferrer">${escapeHtml(buildInfo.remoteUrl || "unknown")}</a></span>
